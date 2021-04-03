@@ -4,6 +4,8 @@
 # flycheck-languagetool
 > Flycheck support for LanguageTool.
 
+Download LanguageTool from https://languagetool.org/download/.
+
 ## Contribution
 
 If you would like to contribute to this project, you may either
