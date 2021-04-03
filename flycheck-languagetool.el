@@ -40,7 +40,29 @@
   :group 'flycheck
   :link '(url-link :tag "Github" "https://github.com/emacs-languagetool/flycheck-languagetool"))
 
+(defconst flycheck-languagetool--home-dir (file-name-directory load-file-name)
+  "`flycheck-languagetool' home directory.")
+
+(defcustom flycheck-languagetool-modes
+  '(text-mode latex-mode org-mode markdown-mode)
+  "List of major mode that work with LanguageTool."
+  :type 'list
+  :group 'flycheck-languagetool)
+
+(flycheck-def-option-var flycheck-languagetool-commandline-jar
+    (expand-file-name "lib/languagetool-commandline.jar" flycheck-languagetool--home-dir)
+    languagetool
+  "The path of languagetool-commandline.jar."
+  :type '(file :must-match t))
+
+(flycheck-def-option-var flycheck-languagetool-language "en-US" languagetool
+  "The language code of the text to check."
+  :type '(string :tag "Language")
+  :safe #'stringp)
+(make-variable-buffer-local 'flycheck-languagetool-language)
+
 (defun flycheck-languagetool--parser (output checker buffer)
+  "Parse error by OUTPUT, CHECKER, BUFFER."
   (mapcar
    (lambda (match)
      (let-alist match
@@ -58,29 +80,17 @@
         :filename (buffer-file-name buffer))))
    (alist-get 'matches (car (flycheck-parse-json output)))))
 
-(flycheck-def-option-var flycheck-languagetool-commandline-jar
-    (expand-file-name "~/src/LanguageTool-4.2/languagetool-commandline.jar")
-    languagetool
-  "The path of languagetool-commandline.jar."
-  :type '(file :must-match t))
-
-(flycheck-def-option-var flycheck-languagetool-language "en-US" languagetool
-  "The language code of the text to check."
-  :type '(string :tag "Language")
-  :safe #'stringp)
-(make-variable-buffer-local 'flycheck-languagetool-language)
-
 (flycheck-define-checker languagetool
   "Style and grammar checker using LanguageTool."
   :command ("java"
             (option "-jar" flycheck-languagetool-commandline-jar)
-            (option "-l" flycheck-languagetool-language)
-            "-l" "en-US"
+            ;;(option "-l" flycheck-languagetool-language)
+            "-adl"
             "--json"
             "-")
   :standard-input t
   :error-parser flycheck-languagetool--parser
-  :modes text-mode
+  :modes (text-mode)
   :predicate
   (lambda ()
     (and flycheck-languagetool-commandline-jar
