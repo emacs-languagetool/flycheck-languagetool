@@ -80,8 +80,7 @@
   "Style and grammar checker using LanguageTool."
   :command ("java"
             (option "-jar" flycheck-languagetool-commandline-jar)
-            ;;(option "-l" flycheck-languagetool-language)
-            "-adl"
+            (option "-l" flycheck-languagetool-language)
             "--json"
             "-")
   :standard-input t
