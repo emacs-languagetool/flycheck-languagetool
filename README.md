@@ -4,7 +4,28 @@
 # flycheck-languagetool
 > Flycheck support for LanguageTool.
 
-Download LanguageTool from https://languagetool.org/download/.
+## :floppy_disk: Installation
+
+The instruction to use the plugin.
+
+1. Download LanguageTool from https://languagetool.org/download/.
+2. Extract on to your local machine.
+3. Consider adding the following snippet to your configuration.
+
+```el
+(use-package flycheck-languagetool
+  :ensure t
+  :hook (text-mode . (lambda ()
+                       (require 'flycheck-languagetool)
+                       (flycheck-mode 1)))
+  :init
+  (setq flycheck-languagetool-commandline-jar "path/to/LanguageTool-X.X/languagetool-commandline.jar"))
+```
+
+## :wrench: Configuration
+
+* `flycheck-languagetool-modes`
+* `flycheck-languagetool-language` (Default `"en-US"`)
 
 ## Contribution
 
