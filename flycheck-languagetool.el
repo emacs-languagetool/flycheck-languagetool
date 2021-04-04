@@ -40,72 +40,158 @@
   :group 'flycheck
   :link '(url-link :tag "Github" "https://github.com/emacs-languagetool/flycheck-languagetool"))
 
-;; TODO: This isn't working while passing to `flycheck-define-checker'.
-(defcustom flycheck-languagetool-modes
+(defcustom flycheck-languagetool-active-modes
   '(text-mode latex-mode org-mode markdown-mode)
   "List of major mode that work with LanguageTool."
   :type 'list
   :group 'flycheck-languagetool)
 
-(flycheck-def-option-var flycheck-languagetool-commandline-jar "" languagetool
+(defcustom flycheck-languagetool-commandline-jar ""
   "The path of languagetool-commandline.jar."
   :type '(file :must-match t))
 
-(flycheck-def-option-var flycheck-languagetool-language "en-US" languagetool
+(defcustom flycheck-languagetool-language "en-US"
   "The language code of the text to check."
   :type '(string :tag "Language")
   :safe #'stringp)
 (make-variable-buffer-local 'flycheck-languagetool-language)
 
-(defun flycheck-languagetool--parser (output checker buffer)
-  "Parse error by OUTPUT, CHECKER, BUFFER."
-  (mapcar
-   (lambda (match)
-     (let-alist match
-       (flycheck-error-new-at
-        (line-number-at-pos (1+ .offset))
-        (save-excursion
-          (goto-char (1+ .offset))
-          ;; Flycheck 1-base, Emacs 0-base
-          (1+ (current-column)))
-        'warning
-        .message
-        :id .rule.id
-        :checker checker
-        :buffer buffer
-        :filename (buffer-file-name buffer))))
-   (alist-get 'matches (car (flycheck-parse-json output)))))
+(defcustom flycheck-languagetool-check-time 0.8
+  "How long do we call process after we done typing."
+  :type 'float
+  :group 'flycheck-languagetool)
 
-(flycheck-define-checker languagetool
-  "Style and grammar checker using LanguageTool."
-  :command ("java"
-            (option "-jar" flycheck-languagetool-commandline-jar)
-            (option "-l" flycheck-languagetool-language)
-            "--json"
-            "-")
-  :standard-input t
-  :error-parser flycheck-languagetool--parser
-  :modes (text-mode)
-  :predicate
-  (lambda ()
-    (and flycheck-languagetool-commandline-jar
-         (file-exists-p flycheck-languagetool-commandline-jar)))
-  :verify
-  (lambda (_)
-    (let ((have-jar
-           (and flycheck-languagetool-commandline-jar
-                (file-exists-p flycheck-languagetool-commandline-jar))))
-      (list
-       (flycheck-verification-result-new
-        :label (or flycheck-languagetool-commandline-jar
-                   "languagetool-commandline.jar")
-        :message (if have-jar "exist" "doesn't exist")
-        :face (if have-jar 'success '(bold error)))))))
+(defvar-local flycheck-languagetool--done-checking t
+  "If non-nil then we are currnetly in the checking process.")
 
-;;;###autoload
-(defun flycheck-languagetool-setup ()
-  "Setup Flycheck LanguageTool."
-  (add-to-list 'flycheck-checkers 'languagetool))
+(defvar-local flycheck-languagetool--timer nil
+  "Timer that will tell to do the request.")
+
+(defvar-local flycheck-languagetool--output nil
+  "Copy of the JSON output.")
+
+(defvar-local flycheck-languagetool--source-buffer nil
+  "Current buffer we are currently using for grammar check.")
+
+;;
+;; (@* "Util" )
+;;
+
+(defun flycheck-languagetool--column-at-pos (&optional pt)
+  "Return column at PT."
+  (unless pt (setq pt (point)))
+  (save-excursion (goto-char pt) (current-column)))
+
+(defmacro flycheck-languagetool--with-source-buffer (&rest body)
+  "Execute BODY inside currnet source buffer."
+  (declare (indent 0) (debug t))
+  `(if flycheck-languagetool--source-buffer
+       (with-current-buffer flycheck-languagetool--source-buffer (progn ,@body))
+     (user-error "Invalid source buffer: %s" flycheck-languagetool--source-buffer)))
+
+(defun flycheck-languagetool--async-shell-command-to-string (callback cmd &rest args)
+  "Asnyc version of function `shell-command-to-string'.
+
+Argument CALLBACK is called after command is done executing.
+Argument CMD is the name of the command executable.
+Rest argument ARGS is the rest of the argument for CMD."
+  (lexical-let
+      ((output-buffer (generate-new-buffer " *temp*"))
+       (callback-fun callback))
+    (set-process-sentinel
+     (start-process "Shell" output-buffer shell-file-name shell-command-switch
+                    (concat cmd " "
+                            (mapconcat #'shell-quote-argument args " ")))
+     (lambda (process signal)
+       (when (memq (process-status process) '(exit signal))
+         (with-current-buffer output-buffer
+           (let ((output-string
+                  (buffer-substring-no-properties
+                   (point-min)
+                   (point-max))))
+             (funcall callback-fun output-string)))
+         (kill-buffer output-buffer))))
+    output-buffer))
+
+;;
+;; (@* "Core" )
+;;
+
+(defun flycheck-languagetool--check-all ()
+  "Check grammar for buffer document."
+  (let ((matches (cdr (assoc 'matches flycheck-languagetool--output)))
+        check-list)
+    (dolist (match matches)
+      (let* ((pt-beg (1+ (cdr (assoc 'offset match))))
+             (len (cdr (assoc 'length match)))
+             (pt-end (+ pt-beg len))
+             (ln (line-number-at-pos pt-beg))
+             (type 'warning)
+             (desc (cdr (assoc 'message match)))
+             (col-start (flycheck-languagetool--column-at-pos pt-beg))
+             (col-end (flycheck-languagetool--column-at-pos pt-end)))
+        (jcs-print ">" pt-beg)
+        (push (list ln col-start type desc :end-column col-end)
+              check-list)))
+    check-list))
+
+(defun flycheck-languagetool--cache-parse-result (output)
+  "Refressh cache buffer."
+  (setq flycheck-languagetool--output (car (flycheck-parse-json output))
+        flycheck-languagetool--done-checking t)
+  (flycheck-buffer-automatically))
+
+(defun flycheck-languagetool--send-process ()
+  "Send process to LanguageTool commandline-jar."
+  (if (not (file-exists-p flycheck-languagetool-commandline-jar))
+      (user-error "Invalid commandline path: %s" flycheck-languagetool-commandline-jar)
+    (when flycheck-languagetool--done-checking
+      (setq flycheck-languagetool--done-checking nil)  ; start flag
+      (flycheck-languagetool--with-source-buffer
+        (let ((source (current-buffer)))
+          (flycheck-languagetool--async-shell-command-to-string
+           (lambda (output)
+             (with-current-buffer source
+               (flycheck-languagetool--cache-parse-result output)))
+           (format "java -jar %s %s --json %s"
+                   flycheck-languagetool-commandline-jar
+                   (if (stringp flycheck-languagetool-language)
+                       (concat "-l " flycheck-languagetool-language)
+                     "-adl")
+                   (buffer-file-name))))))))
+
+(defun flycheck-languagetool--start-timer ()
+  "Start the timer for grammar check."
+  (setq flycheck-languagetool--source-buffer (current-buffer))
+  (when (timerp flycheck-languagetool--timer) (cancel-timer flycheck-languagetool--timer))
+  (setq flycheck-languagetool--timer
+        (run-with-idle-timer flycheck-languagetool-check-time nil
+                             #'flycheck-languagetool--send-process)))
+
+(defun flycheck-languagetool--start (checker callback)
+  "Flycheck start function for CHECKER, invoking CALLBACK."
+  (flycheck-languagetool--start-timer)
+  (funcall
+   callback
+   'finished
+   (flycheck-increment-error-columns
+    (mapcar
+     (lambda (x)
+       (apply #'flycheck-error-new-at `(,@x :checker ,checker)))
+     (condition-case err
+         (if flycheck-languagetool--done-checking
+             (flycheck-languagetool--check-all)
+           (flycheck-stop))
+       (error
+        (funcall callback 'errored (error-message-string err))
+        (signal (car err) (cdr err))))))))
+
+(flycheck-define-generic-checker 'languagetool
+  "LanguageTool flycheck definition."
+  :start #'flycheck-languagetool--start
+  :modes flycheck-languagetool-active-modes)
+
+(add-to-list 'flycheck-checkers 'languagetool)
 
 (provide 'flycheck-languagetool)
 ;;; flycheck-languagetool.el ends here
