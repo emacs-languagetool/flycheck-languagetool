@@ -48,13 +48,20 @@
 
 (defcustom flycheck-languagetool-commandline-jar ""
   "The path of languagetool-commandline.jar."
-  :type '(file :must-match t))
+  :type '(file :must-match t)
+  :group 'flycheck-languagetool)
 
 (defcustom flycheck-languagetool-language "en-US"
   "The language code of the text to check."
   :type '(string :tag "Language")
-  :safe #'stringp)
+  :safe #'stringp
+  :group 'flycheck-languagetool)
 (make-variable-buffer-local 'flycheck-languagetool-language)
+
+(defcustom flycheck-languagetool-args ""
+  "Extra argument pass in to command line tool."
+  :type 'string
+  :group 'flycheck-languagetool)
 
 (defcustom flycheck-languagetool-check-time 0.8
   "How long do we call process after we done typing."
@@ -130,13 +137,12 @@ Rest argument ARGS is the rest of the argument for CMD."
              (desc (cdr (assoc 'message match)))
              (col-start (flycheck-languagetool--column-at-pos pt-beg))
              (col-end (flycheck-languagetool--column-at-pos pt-end)))
-        (jcs-print ">" pt-beg)
         (push (list ln col-start type desc :end-column col-end)
               check-list)))
     check-list))
 
 (defun flycheck-languagetool--cache-parse-result (output)
-  "Refressh cache buffer."
+  "Refressh cache buffer from OUTPUT."
   (setq flycheck-languagetool--output (car (flycheck-parse-json output))
         flycheck-languagetool--done-checking t)
   (flycheck-buffer-automatically))
@@ -153,12 +159,13 @@ Rest argument ARGS is the rest of the argument for CMD."
            (lambda (output)
              (with-current-buffer source
                (flycheck-languagetool--cache-parse-result output)))
-           (format "java -jar %s %s --json %s"
+           (format "java -jar %s %s --json %s %s"
                    flycheck-languagetool-commandline-jar
                    (if (stringp flycheck-languagetool-language)
                        (concat "-l " flycheck-languagetool-language)
                      "-adl")
-                   (buffer-file-name))))))))
+                   (buffer-file-name)
+                   (if (stringp flycheck-languagetool-args) flycheck-languagetool-args ""))))))))
 
 (defun flycheck-languagetool--start-timer ()
   "Start the timer for grammar check."
