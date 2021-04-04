@@ -24,7 +24,7 @@ The instruction to use the plugin.
 
 ## :wrench: Configuration
 
-* `flycheck-languagetool-modes`
+* `flycheck-languagetool-active-modes`
 * `flycheck-languagetool-language` (Default `"en-US"`)
 
 ## Contribution
