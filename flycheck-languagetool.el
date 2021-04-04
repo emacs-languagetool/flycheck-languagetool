@@ -40,18 +40,14 @@
   :group 'flycheck
   :link '(url-link :tag "Github" "https://github.com/emacs-languagetool/flycheck-languagetool"))
 
-(defconst flycheck-languagetool--home-dir (file-name-directory load-file-name)
-  "`flycheck-languagetool' home directory.")
-
+;; TODO: This isn't working while passing to `flycheck-define-checker'.
 (defcustom flycheck-languagetool-modes
   '(text-mode latex-mode org-mode markdown-mode)
   "List of major mode that work with LanguageTool."
   :type 'list
   :group 'flycheck-languagetool)
 
-(flycheck-def-option-var flycheck-languagetool-commandline-jar
-    (expand-file-name "lib/languagetool-commandline.jar" flycheck-languagetool--home-dir)
-    languagetool
+(flycheck-def-option-var flycheck-languagetool-commandline-jar "" languagetool
   "The path of languagetool-commandline.jar."
   :type '(file :must-match t))
 
