@@ -16,13 +16,12 @@ The instruction to use this plugin.
 (use-package flycheck-languagetool
   :ensure t
   :hook (text-mode . (lambda ()
-                       (require 'flycheck-languagetool)
-                       (flycheck-mode 1)))
+                       (require 'flycheck-languagetool)))
   :init
   (setq flycheck-languagetool-commandline-jar "path/to/LanguageTool-X.X/languagetool-commandline.jar"))
 ```
 
-4. :tada: Now open a text file, then it should work!
+4. :tada: Done! Now open a text file and hit `M-x flycheck-mode`!
 
 ## :wrench: Configuration
 
