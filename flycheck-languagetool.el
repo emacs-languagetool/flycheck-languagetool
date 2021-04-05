@@ -107,15 +107,11 @@ Rest argument ARGS is the rest of the argument for CMD."
        (callback-fun callback))
     (set-process-sentinel
      (start-process "Shell" output-buffer shell-file-name shell-command-switch
-                    (concat cmd " "
-                            (mapconcat #'shell-quote-argument args " ")))
+                    (concat cmd " " (mapconcat #'shell-quote-argument args " ")))
      (lambda (process signal)
        (when (memq (process-status process) '(exit signal))
          (with-current-buffer output-buffer
-           (let ((output-string
-                  (buffer-substring-no-properties
-                   (point-min)
-                   (point-max))))
+           (let ((output-string (buffer-substring-no-properties (point-min) (point-max))))
              (funcall callback-fun output-string)))
          (kill-buffer output-buffer))))
     output-buffer))
@@ -124,12 +120,22 @@ Rest argument ARGS is the rest of the argument for CMD."
 ;; (@* "Core" )
 ;;
 
+(defun flycheck-languagetool--dos-coding-p ()
+  "Return non-nil if coding system is DOS, using \r\n."
+  (string-match-p "dos" (symbol-name buffer-file-coding-system)))
+
 (defun flycheck-languagetool--check-all ()
   "Check grammar for buffer document."
   (let ((matches (cdr (assoc 'matches flycheck-languagetool--output)))
         check-list)
     (dolist (match matches)
       (let* ((pt-beg (1+ (cdr (assoc 'offset match))))
+             ;; TODO: The calculation is cause by LanguageTool,
+             ;; see https://github.com/languagetool-org/languagetool/issues/991
+             ;; for more information.
+             (pt-beg (if (flycheck-languagetool--dos-coding-p)
+                         (- pt-beg (1- (line-number-at-pos pt-beg)))
+                       pt-beg))
              (len (cdr (assoc 'length match)))
              (pt-end (+ pt-beg len))
              (ln (line-number-at-pos pt-beg))
