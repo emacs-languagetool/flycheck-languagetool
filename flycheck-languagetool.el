@@ -185,8 +185,7 @@ Rest argument ARGS is the rest of the argument for CMD."
   "Flycheck start function for CHECKER, invoking CALLBACK."
   (flycheck-languagetool--start-timer)
   (funcall
-   callback
-   'finished
+   callback 'finished
    (flycheck-increment-error-columns
     (mapcar
      (lambda (x)
@@ -195,9 +194,8 @@ Rest argument ARGS is the rest of the argument for CMD."
          (if flycheck-languagetool--done-checking
              (flycheck-languagetool--check-all)
            (flycheck-stop))
-       (error
-        (funcall callback 'errored (error-message-string err))
-        (signal (car err) (cdr err))))))))
+       (error (funcall callback 'errored (error-message-string err))
+              (signal (car err) (cdr err))))))))
 
 (flycheck-define-generic-checker 'languagetool
   "LanguageTool flycheck definition."
