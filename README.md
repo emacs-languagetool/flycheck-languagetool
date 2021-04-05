@@ -6,7 +6,7 @@
 
 ## :floppy_disk: Installation
 
-The instruction to use the plugin.
+The instruction to use this plugin.
 
 1. Download LanguageTool from https://languagetool.org/download/.
 2. Extract on to your local machine.
@@ -21,6 +21,8 @@ The instruction to use the plugin.
   :init
   (setq flycheck-languagetool-commandline-jar "path/to/LanguageTool-X.X/languagetool-commandline.jar"))
 ```
+
+4. :tada: Now open a text file, then it should work!
 
 ## :wrench: Configuration
 
