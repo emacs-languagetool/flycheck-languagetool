@@ -32,6 +32,7 @@
 
 ;;; Code:
 
+(eval-when-compile (require 'cl))
 (require 'flycheck)
 
 (defgroup flycheck-languagetool nil
@@ -108,7 +109,7 @@ Rest argument ARGS is the rest of the argument for CMD."
     (set-process-sentinel
      (start-process "Shell" output-buffer shell-file-name shell-command-switch
                     (concat cmd " " (mapconcat #'shell-quote-argument args " ")))
-     (lambda (process signal)
+     (lambda (process _signal)
        (when (memq (process-status process) '(exit signal))
          (with-current-buffer output-buffer
            (let ((output-string (buffer-substring-no-properties (point-min) (point-max))))
