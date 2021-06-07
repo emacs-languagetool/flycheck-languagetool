@@ -32,7 +32,6 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
 (require 'flycheck)
 
 (defgroup flycheck-languagetool nil
@@ -103,9 +102,8 @@
 Argument CALLBACK is called after command is done executing.
 Argument CMD is the name of the command executable.
 Rest argument ARGS is the rest of the argument for CMD."
-  (lexical-let
-      ((output-buffer (generate-new-buffer " *temp*"))
-       (callback-fun callback))
+  (let ((output-buffer (generate-new-buffer " *temp*"))
+        (callback-fun callback))
     (set-process-sentinel
      (start-process "Shell" output-buffer shell-file-name shell-command-switch
                     (concat cmd " " (mapconcat #'shell-quote-argument args " ")))
