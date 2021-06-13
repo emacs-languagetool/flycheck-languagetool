@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.com/emacs-languagetool/flycheck-languagetool.svg?branch=master)](https://travis-ci.com/emacs-languagetool/flycheck-languagetool)
+[![MELPA](https://melpa.org/packages/flycheck-languagetool-badge.svg)](https://melpa.org/#/flycheck-languagetool)
+[![MELPA Stable](https://stable.melpa.org/packages/flycheck-languagetool-badge.svg)](https://stable.melpa.org/#/flycheck-languagetool)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 <img align="right" src="./etc/logo.png" with="153" height="46">
