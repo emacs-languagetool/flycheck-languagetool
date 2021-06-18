@@ -6,7 +6,7 @@
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
 ;; Description: Flycheck support for LanguageTool.
 ;; Keyword: grammar check
-;; Version: 0.1.0
+;; Version: 0.2.0
 ;; Package-Requires: ((emacs "25.1") (flycheck "0.14") (s "1.9.0"))
 ;; URL: https://github.com/emacs-languagetool/flycheck-languagetool
 
