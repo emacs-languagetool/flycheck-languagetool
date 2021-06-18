@@ -153,8 +153,8 @@ Rest argument ARGS is the rest of the argument for CMD."
         (let ((source (current-buffer)))
           (flycheck-languagetool--async-shell-command-to-string
            (lambda (output)
-             (with-current-buffer source
-               (flycheck-languagetool--cache-parse-result output)))
+             (when (buffer-live-p source)
+               (with-current-buffer source (flycheck-languagetool--cache-parse-result output))))
            (format "echo %s | java -jar %s %s --json -b %s"
                    (s-replace "\n" " " (buffer-string))
                    flycheck-languagetool-commandline-jar
