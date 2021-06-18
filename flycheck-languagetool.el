@@ -7,7 +7,7 @@
 ;; Description: Flycheck support for LanguageTool.
 ;; Keyword: grammar check
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "25.1") (flycheck "0.14"))
+;; Package-Requires: ((emacs "25.1") (flycheck "0.14") (s "1.9.0"))
 ;; URL: https://github.com/emacs-languagetool/flycheck-languagetool
 
 ;; This file is NOT part of GNU Emacs.
@@ -32,6 +32,7 @@
 
 ;;; Code:
 
+(require 's)
 (require 'flycheck)
 
 (defgroup flycheck-languagetool nil
@@ -119,22 +120,12 @@ Rest argument ARGS is the rest of the argument for CMD."
 ;; (@* "Core" )
 ;;
 
-(defun flycheck-languagetool--dos-coding-p ()
-  "Return non-nil if coding system is DOS, using \r\n."
-  (string-match-p "dos" (symbol-name buffer-file-coding-system)))
-
 (defun flycheck-languagetool--check-all ()
   "Check grammar for buffer document."
   (let ((matches (cdr (assoc 'matches flycheck-languagetool--output)))
         check-list)
     (dolist (match matches)
       (let* ((pt-beg (1+ (cdr (assoc 'offset match))))
-             ;; TODO: The calculation is cause by LanguageTool,
-             ;; see https://github.com/languagetool-org/languagetool/issues/991
-             ;; for more information.
-             (pt-beg (if (flycheck-languagetool--dos-coding-p)
-                         (- pt-beg (1- (line-number-at-pos pt-beg)))
-                       pt-beg))
              (len (cdr (assoc 'length match)))
              (pt-end (+ pt-beg len))
              (ln (line-number-at-pos pt-beg))
@@ -164,12 +155,12 @@ Rest argument ARGS is the rest of the argument for CMD."
            (lambda (output)
              (with-current-buffer source
                (flycheck-languagetool--cache-parse-result output)))
-           (format "java -jar %s %s --json %s %s"
+           (format "echo %s | java -jar %s %s --json -b %s"
+                   (s-replace "\n" " " (buffer-string))
                    flycheck-languagetool-commandline-jar
                    (if (stringp flycheck-languagetool-language)
                        (concat "-l " flycheck-languagetool-language)
                      "-adl")
-                   (buffer-file-name)
                    (if (stringp flycheck-languagetool-args) flycheck-languagetool-args ""))))))))
 
 (defun flycheck-languagetool--start-timer ()
