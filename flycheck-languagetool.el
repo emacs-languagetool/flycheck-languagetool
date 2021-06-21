@@ -32,7 +32,6 @@
 
 ;;; Code:
 
-(require 'cl-lib)
 (require 's)
 (require 'flycheck)
 
