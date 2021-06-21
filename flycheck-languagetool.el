@@ -105,7 +105,7 @@
   (let ((matches (cdr (assoc 'matches flycheck-languagetool--output)))
         check-list)
     (dolist (match matches)
-      (let* ((pt-beg (cdr (assoc 'offset match)))
+      (let* ((pt-beg (+ 1 (cdr (assoc 'offset match))))
              (len (cdr (assoc 'length match)))
              (pt-end (+ pt-beg len))
              (ln (line-number-at-pos pt-beg))
