@@ -32,7 +32,6 @@
 
 ;;; Code:
 
-(require 's)
 (require 'flycheck)
 
 (defgroup flycheck-languagetool nil
@@ -47,9 +46,9 @@
   :type 'list
   :group 'flycheck-languagetool)
 
-(defcustom flycheck-languagetool-commandline-jar ""
-  "The path of languagetool-commandline.jar."
-  :type '(file :must-match t)
+(defcustom flycheck-languagetool-url "http://localhost:8081"
+  "The URL for the LanguageTool API we should connect to."
+  :type 'string
   :group 'flycheck-languagetool)
 
 (defcustom flycheck-languagetool-language "en-US"
@@ -97,25 +96,6 @@
        (with-current-buffer flycheck-languagetool--source-buffer (progn ,@body))
      (user-error "Invalid source buffer: %s" flycheck-languagetool--source-buffer)))
 
-(defun flycheck-languagetool--async-shell-command-to-string (callback cmd &rest args)
-  "Asnyc version of function `shell-command-to-string'.
-
-Argument CALLBACK is called after command is done executing.
-Argument CMD is the name of the command executable.
-Rest argument ARGS is the rest of the argument for CMD."
-  (let ((output-buffer (generate-new-buffer " *temp*"))
-        (callback-fun callback))
-    (set-process-sentinel
-     (start-process "Shell" output-buffer shell-file-name shell-command-switch
-                    (concat cmd " " (mapconcat #'shell-quote-argument args " ")))
-     (lambda (process _signal)
-       (when (memq (process-status process) '(exit signal))
-         (with-current-buffer output-buffer
-           (let ((output-string (buffer-substring-no-properties (point-min) (point-max))))
-             (funcall callback-fun output-string)))
-         (kill-buffer output-buffer))))
-    output-buffer))
-
 ;;
 ;; (@* "Core" )
 ;;
@@ -146,25 +126,34 @@ Rest argument ARGS is the rest of the argument for CMD."
         flycheck-languagetool--done-checking t)
   (flycheck-buffer-automatically))
 
+(defun flycheck-languagetool--read-result (status source-buffer)
+  "Callback for results from LanguageTool API.
+
+STATUS is passed from `url-retrieve'.
+SOURCE-BUFFER is the buffer currently being checked."
+  (set-buffer-multibyte t)
+  (search-forward "\n\n")
+  (let ((output (buffer-substring (point) (point-max))))
+    (with-current-buffer source-buffer
+      (flycheck-languagetool--cache-parse-result output)))
+  (kill-buffer))
+
 (defun flycheck-languagetool--send-process ()
   "Send process to LanguageTool commandline-jar."
-  (if (not (file-exists-p flycheck-languagetool-commandline-jar))
-      (user-error "Invalid commandline path: %s" flycheck-languagetool-commandline-jar)
-    (when flycheck-languagetool--done-checking
-      (setq flycheck-languagetool--done-checking nil)  ; start flag
-      (flycheck-languagetool--with-source-buffer
-        (let ((source (current-buffer)))
-          (flycheck-languagetool--async-shell-command-to-string
-           (lambda (output)
-             (when (buffer-live-p source)
-               (with-current-buffer source (flycheck-languagetool--cache-parse-result output))))
-           (format "echo %s | java -jar %s %s --json -b %s"
-                   (shell-quote-argument (s-replace "\n" " " (buffer-string)))
-                   flycheck-languagetool-commandline-jar
-                   (if (stringp flycheck-languagetool-language)
-                       (concat "-l " flycheck-languagetool-language)
-                     "-adl")
-                   (if (stringp flycheck-languagetool-args) flycheck-languagetool-args ""))))))))
+  (when flycheck-languagetool--done-checking
+    (setq flycheck-languagetool--done-checking nil)  ; start flag
+    (flycheck-languagetool--with-source-buffer
+      (let ((url-request-method "POST")
+            (url-request-extra-headers
+             '(("Content-Type" . "application/x-www-form-urlencoded")))
+            (url-request-data
+             (concat
+              "language=" (url-hexify-string flycheck-languagetool-language)
+              "&text=" (url-hexify-string (buffer-string)))))
+        (url-retrieve (concat flycheck-languagetool-url "/v2/check")
+                      #'flycheck-languagetool--read-result
+                      (list (current-buffer))
+                      t)))))
 
 (defun flycheck-languagetool--start-timer ()
   "Start the timer for grammar check."
