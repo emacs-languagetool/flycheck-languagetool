@@ -136,7 +136,7 @@ Rest argument ARGS is the rest of the argument for CMD."
              (col-end (flycheck-languagetool--column-at-pos pt-end)))
         (push (list ln col-start type desc :end-column col-end)
               check-list)))
-    (progn  ; Remove fitst and last element to avoid quote warningsk
+    (progn  ; Remove fitst and last element to avoid quote warnings
       (pop check-list)
       (setq check-list (butlast check-list)))
     check-list))
