@@ -51,6 +51,16 @@
   :type 'string
   :group 'flycheck-languagetool)
 
+(defcustom flycheck-languagetool-server-jar ""
+  "The path of languagetool-server.jar."
+  :type '(file :must-match t)
+  :group 'flycheck-languagetool)
+
+(defcustom flycheck-languagetool-server-port 8081
+  "The port on which a server should listen."
+  :type 'integer
+  :group 'flycheck-languagetool)
+
 (defcustom flycheck-languagetool-language "en-US"
   "The language code of the text to check."
   :type '(string :tag "Language")
@@ -163,8 +173,22 @@ SOURCE-BUFFER is the buffer currently being checked."
         (run-with-idle-timer flycheck-languagetool-check-time nil
                              #'flycheck-languagetool--send-process)))
 
+(defun flycheck-languagetool--start-server ()
+  "Start the LanguageTool server if we didn’t already."
+  (unless (process-live-p (get-process "languagetool-server"))
+    (set-process-query-on-exit-flag
+     (start-process
+      "languagetool-server"
+      " *LanguageTool server*"
+      "java" "-cp" (expand-file-name flycheck-languagetool-server-jar)
+      "org.languagetool.server.HTTPServer"
+      "--port" (format "%s" flycheck-languagetool-server-port))
+     nil)))
+
 (defun flycheck-languagetool--start (checker callback)
   "Flycheck start function for CHECKER, invoking CALLBACK."
+  (when flycheck-languagetool-server-jar
+    (flycheck-languagetool--start-server))
   (flycheck-languagetool--start-timer)
   (funcall
    callback 'finished
