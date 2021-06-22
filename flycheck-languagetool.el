@@ -46,19 +46,21 @@
   :type 'list
   :group 'flycheck-languagetool)
 
-(defcustom flycheck-languagetool-url "http://localhost:8081"
+(defcustom flycheck-languagetool-url nil
   "The URL for the LanguageTool API we should connect to."
-  :type 'string
+  :type '(choice (const :tag "Auto" nil)
+                 (string :tag "URL"))
   :package-version '(flycheck-languagetool . "0.3.0")
   :group 'flycheck-languagetool)
 
-(defcustom flycheck-languagetool-server-jar ""
+(defcustom flycheck-languagetool-server-jar nil
   "The path of languagetool-server.jar.
 
-The server will be automatically started if specified.  Leave
-blank if you’re going to connect to a remote LanguageTool server,
+The server will be automatically started if specified.  Set to
+nil if you’re going to connect to a remote LanguageTool server,
 or plan to start a local server some other way."
-  :type '(file :must-match t)
+  :type '(choice (const :tag "Off" nil)
+                 (file :tag "Filename" :must-match t))
   :package-version '(flycheck-languagetool . "0.3.0")
   :link '(url-link :tag "LanguageTool embedded HTTP Server"
                    "https://dev.languagetool.org/http-server.html")
@@ -187,14 +189,58 @@ CALLBACK is passed from Flycheck."
                   `(("language" . ,flycheck-languagetool-language)
                     ("text" . ,(buffer-string))))
           "&")))
-    (url-retrieve (concat flycheck-languagetool-url "/v2/check")
-                  #'flycheck-languagetool--read-result
-                  (list (current-buffer) callback)
-                  t)))
+    (url-retrieve
+     (concat (or flycheck-languagetool-url
+                 (format "http://localhost:%s"
+                         flycheck-languagetool-server-port))
+             "/v2/check")
+     #'flycheck-languagetool--read-result
+     (list (current-buffer) callback)
+     t)))
+
+(defun flycheck-languagetool--enabled ()
+  "Can the Flycheck LanguageTool checker be enabled?"
+  (or (and flycheck-languagetool-server-jar
+           (not (string= "" flycheck-languagetool-server-jar))
+           (file-exists-p flycheck-languagetool-server-jar))
+      (and flycheck-languagetool-url
+           (not (string= "" flycheck-languagetool-url)))))
+
+(defun flycheck-languagetool--verify (checker)
+  "Verify proper configuration of Flycheck CHECKER `languagetool'."
+  (list
+   (flycheck-verification-result-new
+    :label "LanguageTool server JAR"
+    :message
+    (if flycheck-languagetool-server-jar
+        (format (if (and (not (string= "" flycheck-languagetool-server-jar))
+                         (file-exists-p flycheck-languagetool-server-jar))
+                    "Found at %s" "Missing from %s")
+                flycheck-languagetool-server-jar)
+      "Not configured")
+    :face (if flycheck-languagetool-server-jar
+              (if (and (not (string= "" flycheck-languagetool-server-jar))
+                       (file-exists-p flycheck-languagetool-server-jar))
+                  'success '(bold error))
+            '(bold warning)))
+   (flycheck-verification-result-new
+    ;; We could improve this test by also checking that we can
+    ;; successfully make requests to the URL.
+    :label "LanguageTool API URL"
+    :message (if flycheck-languagetool-url
+                 (if (not (string= "" flycheck-languagetool-url))
+                     flycheck-languagetool-url "Blank")
+               "Not configured")
+    :face (if flycheck-languagetool-url
+                 (if (not (string= "" flycheck-languagetool-url))
+                     'success '(bold error))
+            '(bold warning)))))
 
 (flycheck-define-generic-checker 'languagetool
   "LanguageTool flycheck definition."
   :start #'flycheck-languagetool--start
+  :enabled #'flycheck-languagetool--enabled
+  :verify #'flycheck-languagetool--verify
   :modes flycheck-languagetool-active-modes)
 
 (add-to-list 'flycheck-checkers 'languagetool)
