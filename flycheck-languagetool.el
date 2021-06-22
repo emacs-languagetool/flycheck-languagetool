@@ -142,7 +142,7 @@ CALLBACK is passed from Flycheck."
              (signal (car err) (cdr err)))))
 
   (set-buffer-multibyte t)
-  (search-forward "\n\n")
+  (goto-char url-http-end-of-headers)
   (let ((output (car (flycheck-parse-json
                       (buffer-substring (point) (point-max))))))
     (kill-buffer)
