@@ -94,23 +94,6 @@ or plan to start a local server some other way."
           "https://languagetool.org/http-api/swagger-ui/#!/default/post_check")
   :group 'flycheck-languagetool)
 
-(defcustom flycheck-languagetool-check-time 0.8
-  "How long do we call process after we done typing."
-  :type 'float
-  :group 'flycheck-languagetool)
-
-(defvar-local flycheck-languagetool--done-checking t
-  "If non-nil then we are currnetly in the checking process.")
-
-(defvar-local flycheck-languagetool--timer nil
-  "Timer that will tell to do the request.")
-
-(defvar-local flycheck-languagetool--output nil
-  "Copy of the JSON output.")
-
-(defvar-local flycheck-languagetool--source-buffer nil
-  "Current buffer we are currently using for grammar check.")
-
 ;;
 ;; (@* "Util" )
 ;;
@@ -120,20 +103,13 @@ or plan to start a local server some other way."
   (unless pt (setq pt (point)))
   (save-excursion (goto-char pt) (current-column)))
 
-(defmacro flycheck-languagetool--with-source-buffer (&rest body)
-  "Execute BODY inside currnet source buffer."
-  (declare (indent 0) (debug t))
-  `(if flycheck-languagetool--source-buffer
-       (with-current-buffer flycheck-languagetool--source-buffer (progn ,@body))
-     (user-error "Invalid source buffer: %s" flycheck-languagetool--source-buffer)))
-
 ;;
 ;; (@* "Core" )
 ;;
 
-(defun flycheck-languagetool--check-all ()
+(defun flycheck-languagetool--check-all (output)
   "Check grammar for buffer document."
-  (let ((matches (cdr (assoc 'matches flycheck-languagetool--output)))
+  (let ((matches (cdr (assoc 'matches output)))
         check-list)
     (dolist (match matches)
       (let* ((pt-beg (+ 1 (cdr (assoc 'offset match))))
@@ -151,53 +127,28 @@ or plan to start a local server some other way."
       (setq check-list (butlast check-list)))
     check-list))
 
-(defun flycheck-languagetool--cache-parse-result (output)
-  "Refressh cache buffer from OUTPUT."
-  (setq flycheck-languagetool--output (car (flycheck-parse-json output))
-        flycheck-languagetool--done-checking t)
-  (flycheck-buffer-automatically))
-
-(defun flycheck-languagetool--read-result (status source-buffer)
+(defun flycheck-languagetool--read-result (status source-buffer callback)
   "Callback for results from LanguageTool API.
 
 STATUS is passed from `url-retrieve'.
-SOURCE-BUFFER is the buffer currently being checked."
+SOURCE-BUFFER is the buffer currently being checked.
+CALLBACK is passed from Flycheck."
   (set-buffer-multibyte t)
   (search-forward "\n\n")
-  (let ((output (buffer-substring (point) (point-max))))
+  (let ((output (car (flycheck-parse-json
+                      (buffer-substring (point) (point-max))))))
+    (kill-buffer)
     (with-current-buffer source-buffer
-      (flycheck-languagetool--cache-parse-result output)))
-  (kill-buffer))
-
-(defun flycheck-languagetool--send-process ()
-  "Send text to LanguageTool API."
-  (when flycheck-languagetool--done-checking
-    (setq flycheck-languagetool--done-checking nil)  ; start flag
-    (flycheck-languagetool--with-source-buffer
-      (let ((url-request-method "POST")
-            (url-request-extra-headers
-             '(("Content-Type" . "application/x-www-form-urlencoded")))
-            (url-request-data
-             (mapconcat
-              (lambda (param)
-                (concat (url-hexify-string (car param)) "="
-                        (url-hexify-string (cdr param))))
-              (append flycheck-languagetool-check-params
-                      `(("language" . ,flycheck-languagetool-language)
-                        ("text" . ,(buffer-string))))
-              "&")))
-        (url-retrieve (concat flycheck-languagetool-url "/v2/check")
-                      #'flycheck-languagetool--read-result
-                      (list (current-buffer))
-                      t)))))
-
-(defun flycheck-languagetool--start-timer ()
-  "Start the timer for grammar check."
-  (setq flycheck-languagetool--source-buffer (current-buffer))
-  (when (timerp flycheck-languagetool--timer) (cancel-timer flycheck-languagetool--timer))
-  (setq flycheck-languagetool--timer
-        (run-with-idle-timer flycheck-languagetool-check-time nil
-                             #'flycheck-languagetool--send-process)))
+      (funcall
+       callback 'finished
+       (flycheck-increment-error-columns
+        (mapcar
+         (lambda (x)
+           (apply #'flycheck-error-new-at `(,@x :checker languagetool)))
+         (condition-case err
+             (flycheck-languagetool--check-all output)
+           (error (funcall callback 'errored (error-message-string err))
+                  (signal (car err) (cdr err))))))))))
 
 (defun flycheck-languagetool--start-server ()
   "Start the LanguageTool server if we didn’t already."
@@ -217,19 +168,23 @@ SOURCE-BUFFER is the buffer currently being checked."
   "Flycheck start function for CHECKER, invoking CALLBACK."
   (when flycheck-languagetool-server-jar
     (flycheck-languagetool--start-server))
-  (flycheck-languagetool--start-timer)
-  (funcall
-   callback 'finished
-   (flycheck-increment-error-columns
-    (mapcar
-     (lambda (x)
-       (apply #'flycheck-error-new-at `(,@x :checker ,checker)))
-     (condition-case err
-         (if flycheck-languagetool--done-checking
-             (flycheck-languagetool--check-all)
-           (flycheck-stop))
-       (error (funcall callback 'errored (error-message-string err))
-              (signal (car err) (cdr err))))))))
+
+  (let ((url-request-method "POST")
+        (url-request-extra-headers
+         '(("Content-Type" . "application/x-www-form-urlencoded")))
+        (url-request-data
+         (mapconcat
+          (lambda (param)
+            (concat (url-hexify-string (car param)) "="
+                    (url-hexify-string (cdr param))))
+          (append flycheck-languagetool-check-params
+                  `(("language" . ,flycheck-languagetool-language)
+                    ("text" . ,(buffer-string))))
+          "&")))
+    (url-retrieve (concat flycheck-languagetool-url "/v2/check")
+                  #'flycheck-languagetool--read-result
+                  (list (current-buffer) callback)
+                  t)))
 
 (flycheck-define-generic-checker 'languagetool
   "LanguageTool flycheck definition."
