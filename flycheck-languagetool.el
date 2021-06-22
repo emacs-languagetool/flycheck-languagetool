@@ -6,7 +6,7 @@
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
 ;; Description: Flycheck support for LanguageTool.
 ;; Keyword: grammar check
-;; Version: 0.2.0
+;; Version: 0.3.0
 ;; Package-Requires: ((emacs "25.1") (flycheck "0.14") (s "1.9.0"))
 ;; URL: https://github.com/emacs-languagetool/flycheck-languagetool
 
@@ -49,16 +49,27 @@
 (defcustom flycheck-languagetool-url "http://localhost:8081"
   "The URL for the LanguageTool API we should connect to."
   :type 'string
+  :package-version '(flycheck-languagetool . "0.3.0")
   :group 'flycheck-languagetool)
 
 (defcustom flycheck-languagetool-server-jar ""
-  "The path of languagetool-server.jar."
+  "The path of languagetool-server.jar.
+
+The server will be automatically started if specified.  Leave
+blank if you’re going to connect to a remote LanguageTool server,
+or plan to start a local server some other way."
   :type '(file :must-match t)
+  :package-version '(flycheck-languagetool . "0.3.0")
+  :link '(url-link :tag "LanguageTool embedded HTTP Server"
+                   "https://dev.languagetool.org/http-server.html")
   :group 'flycheck-languagetool)
 
 (defcustom flycheck-languagetool-server-port 8081
-  "The port on which a server should listen."
+  "The port on which an automatically started LanguageTool server should listen."
   :type 'integer
+  :package-version '(flycheck-languagetool . "0.3.0")
+  :link '(url-link :tag "LanguageTool embedded HTTP Server"
+                   "https://dev.languagetool.org/http-server.html")
   :group 'flycheck-languagetool)
 
 (defcustom flycheck-languagetool-language "en-US"
@@ -149,7 +160,7 @@ SOURCE-BUFFER is the buffer currently being checked."
   (kill-buffer))
 
 (defun flycheck-languagetool--send-process ()
-  "Send process to LanguageTool commandline-jar."
+  "Send text to LanguageTool API."
   (when flycheck-languagetool--done-checking
     (setq flycheck-languagetool--done-checking nil)  ; start flag
     (flycheck-languagetool--with-source-buffer

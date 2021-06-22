@@ -22,14 +22,16 @@ The instruction to use this plugin.
   :hook (text-mode . (lambda ()
                        (require 'flycheck-languagetool)))
   :init
-  (setq flycheck-languagetool-commandline-jar "path/to/LanguageTool-X.X/languagetool-commandline.jar"))
+  (setq flycheck-languagetool-server-jar "path/to/LanguageTool-X.X/languagetool-server.jar"))
 ```
 
 4. :tada: Done! Now open a text file and hit `M-x flycheck-mode`!
 
 ## :wrench: Configuration
 
-* `flycheck-languagetool-commandline-jar`
+* `flycheck-languagetool-url`
+* `flycheck-languagetool-server-jar`
+* `flycheck-languagetool-server-port`
 * `flycheck-languagetool-active-modes`
 * `flycheck-languagetool-language` (Default `"en-US"`)
 
