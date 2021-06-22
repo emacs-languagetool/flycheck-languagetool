@@ -133,6 +133,12 @@ or plan to start a local server some other way."
 STATUS is passed from `url-retrieve'.
 SOURCE-BUFFER is the buffer currently being checked.
 CALLBACK is passed from Flycheck."
+  (let ((err (plist-get status :error)))
+    (when err
+      (kill-buffer)
+      (error (funcall callback 'errored (error-message-string err))
+             (signal (car err) (cdr err)))))
+
   (set-buffer-multibyte t)
   (search-forward "\n\n")
   (let ((output (car (flycheck-parse-json
