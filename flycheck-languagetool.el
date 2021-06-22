@@ -72,6 +72,13 @@ or plan to start a local server some other way."
                    "https://dev.languagetool.org/http-server.html")
   :group 'flycheck-languagetool)
 
+(defcustom flycheck-languagetool-server-args ()
+  "Extra arguments to pass when starting the LanguageTool server."
+  :type '(repeat string)
+  :link '(url-link :tag "LanguageTool embedded HTTP Server"
+                   "https://dev.languagetool.org/http-server.html")
+  :group 'flycheck-languagetool)
+
 (defcustom flycheck-languagetool-language "en-US"
   "The language code of the text to check."
   :type '(string :tag "Language")
@@ -79,9 +86,12 @@ or plan to start a local server some other way."
   :group 'flycheck-languagetool)
 (make-variable-buffer-local 'flycheck-languagetool-language)
 
-(defcustom flycheck-languagetool-args ""
-  "Extra argument pass in to command line tool."
-  :type 'string
+(defcustom flycheck-languagetool-check-params ()
+  "Extra parameters to pass with LanguageTool check requests."
+  :type '(alist :key-type string :value-type string)
+  :link '(url-link
+          :tag "LanguageTool API"
+          "https://languagetool.org/http-api/swagger-ui/#!/default/post_check")
   :group 'flycheck-languagetool)
 
 (defcustom flycheck-languagetool-check-time 0.8
@@ -168,9 +178,14 @@ SOURCE-BUFFER is the buffer currently being checked."
             (url-request-extra-headers
              '(("Content-Type" . "application/x-www-form-urlencoded")))
             (url-request-data
-             (concat
-              "language=" (url-hexify-string flycheck-languagetool-language)
-              "&text=" (url-hexify-string (buffer-string)))))
+             (mapconcat
+              (lambda (param)
+                (concat (url-hexify-string (car param)) "="
+                        (url-hexify-string (cdr param))))
+              (append flycheck-languagetool-check-params
+                      `(("language" . ,flycheck-languagetool-language)
+                        ("text" . ,(buffer-string))))
+              "&")))
         (url-retrieve (concat flycheck-languagetool-url "/v2/check")
                       #'flycheck-languagetool--read-result
                       (list (current-buffer))
@@ -188,12 +203,14 @@ SOURCE-BUFFER is the buffer currently being checked."
   "Start the LanguageTool server if we didn’t already."
   (unless (process-live-p (get-process "languagetool-server"))
     (set-process-query-on-exit-flag
-     (start-process
+     (apply
+      #'start-process
       "languagetool-server"
       " *LanguageTool server*"
       "java" "-cp" (expand-file-name flycheck-languagetool-server-jar)
       "org.languagetool.server.HTTPServer"
-      "--port" (format "%s" flycheck-languagetool-server-port))
+      "--port" (format "%s" flycheck-languagetool-server-port)
+      flycheck-languagetool-server-args)
      nil)))
 
 (defun flycheck-languagetool--start (checker callback)
