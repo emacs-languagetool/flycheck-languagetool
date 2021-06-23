@@ -161,16 +161,22 @@ CALLBACK is passed from Flycheck."
 (defun flycheck-languagetool--start-server ()
   "Start the LanguageTool server if we didn’t already."
   (unless (process-live-p (get-process "languagetool-server"))
-    (set-process-query-on-exit-flag
-     (apply
-      #'start-process
-      "languagetool-server"
-      " *LanguageTool server*"
-      "java" "-cp" (expand-file-name flycheck-languagetool-server-jar)
-      "org.languagetool.server.HTTPServer"
-      "--port" (format "%s" flycheck-languagetool-server-port)
-      flycheck-languagetool-server-args)
-     nil)))
+    (let ((process
+           (apply #'start-process
+                  "languagetool-server"
+                  " *LanguageTool server*"
+                  "java"
+                  "-cp" (expand-file-name flycheck-languagetool-server-jar)
+                  "org.languagetool.server.HTTPServer"
+                  "--port" (format "%s" flycheck-languagetool-server-port)
+                  flycheck-languagetool-server-args)))
+      (set-process-query-on-exit-flag process nil)
+      (while
+          (with-current-buffer (process-buffer process)
+            (goto-char (point-min))
+            (unless (re-search-forward " Server started$" nil t)
+              (accept-process-output process 1)
+              t))))))
 
 (defun flycheck-languagetool--start (checker callback)
   "Flycheck start function for CHECKER, invoking CALLBACK."
