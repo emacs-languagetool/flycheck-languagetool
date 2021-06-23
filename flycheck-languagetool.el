@@ -42,7 +42,7 @@
   :link '(url-link :tag "Github" "https://github.com/emacs-languagetool/flycheck-languagetool"))
 
 (defcustom flycheck-languagetool-active-modes
-  '(text-mode latex-mode org-mode markdown-mode)
+  '(text-mode latex-mode org-mode markdown-mode message-mode)
   "List of major mode that work with LanguageTool."
   :type 'list
   :group 'flycheck-languagetool)
