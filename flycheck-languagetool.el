@@ -124,9 +124,6 @@ or plan to start a local server some other way."
              (col-end (flycheck-languagetool--column-at-pos pt-end)))
         (push (list ln col-start type desc :end-column col-end)
               check-list)))
-    (progn  ; Remove fitst and last element to avoid quote warnings
-      (pop check-list)
-      (setq check-list (butlast check-list)))
     check-list))
 
 (defun flycheck-languagetool--read-result (status source-buffer callback)
