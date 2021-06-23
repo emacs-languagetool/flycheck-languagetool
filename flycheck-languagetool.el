@@ -34,6 +34,7 @@
 ;;; Code:
 
 (require 'flycheck)
+(eval-when-compile (require 'subr-x))
 
 (defgroup flycheck-languagetool nil
   "Flycheck support for LanguageTool."
@@ -99,6 +100,42 @@ or plan to start a local server some other way."
 
 (defvar flycheck-languagetool--started-server nil
   "Have we ever attempted to start the LanguageTool server?")
+
+(defvar flycheck-languagetool--spelling-rules
+  '("HUNSPELL_RULE"
+    "HUNSPELL_RULE_AR"
+    "MORFOLOGIK_RULE_AST"
+    "MORFOLOGIK_RULE_BE_BY"
+    "MORFOLOGIK_RULE_BR_FR"
+    "MORFOLOGIK_RULE_CA_ES"
+    "MORFOLOGIK_RULE_DE_DE"
+    "MORFOLOGIK_RULE_EL_GR"
+    "MORFOLOGIK_RULE_EN"
+    "MORFOLOGIK_RULE_EN_AU"
+    "MORFOLOGIK_RULE_EN_CA"
+    "MORFOLOGIK_RULE_EN_GB"
+    "MORFOLOGIK_RULE_EN_NZ"
+    "MORFOLOGIK_RULE_EN_US"
+    "MORFOLOGIK_RULE_EN_ZA"
+    "MORFOLOGIK_RULE_ES"
+    "MORFOLOGIK_RULE_GA_IE"
+    "MORFOLOGIK_RULE_IT_IT"
+    "MORFOLOGIK_RULE_LT_LT"
+    "MORFOLOGIK_RULE_ML_IN"
+    "MORFOLOGIK_RULE_NL_NL"
+    "MORFOLOGIK_RULE_PL_PL"
+    "MORFOLOGIK_RULE_RO_RO"
+    "MORFOLOGIK_RULE_RU_RU"
+    "MORFOLOGIK_RULE_RU_RU_YO"
+    "MORFOLOGIK_RULE_SK_SK"
+    "MORFOLOGIK_RULE_SL_SI"
+    "MORFOLOGIK_RULE_SR_EKAVIAN"
+    "MORFOLOGIK_RULE_SR_JEKAVIAN"
+    "MORFOLOGIK_RULE_TL"
+    "MORFOLOGIK_RULE_UK_UA"
+    "SYMSPELL_RULE")
+  "LanguageTool rules for checking of spelling.
+These rules will be disabled if Emacs’ `flyspell-mode' is active.")
 
 ;;
 ;; (@* "Util" )
@@ -196,7 +233,12 @@ CALLBACK is passed from Flycheck."
                     (url-hexify-string (cdr param))))
           (append flycheck-languagetool-check-params
                   `(("language" . ,flycheck-languagetool-language)
-                    ("text" . ,(buffer-string))))
+                    ("text" . ,(buffer-string)))
+                  (when (bound-and-true-p flyspell-mode)
+                    (list
+                     (cons "disabledRules"
+                           (string-join flycheck-languagetool--spelling-rules
+                                        ",")))))
           "&")))
     (url-retrieve
      (concat (or flycheck-languagetool-url
