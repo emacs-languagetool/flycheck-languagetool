@@ -175,8 +175,8 @@ CALLBACK is passed from Flycheck."
               (accept-process-output process 1)
               (process-live-p process)))))))
 
-(defun flycheck-languagetool--start (checker callback)
-  "Flycheck start function for CHECKER, invoking CALLBACK."
+(defun flycheck-languagetool--start (_checker callback)
+  "Flycheck start function for _CHECKER `languagetool', invoking CALLBACK."
   (when flycheck-languagetool-server-jar
     (flycheck-languagetool--start-server))
 
@@ -209,8 +209,8 @@ CALLBACK is passed from Flycheck."
       (and flycheck-languagetool-url
            (not (string= "" flycheck-languagetool-url)))))
 
-(defun flycheck-languagetool--verify (checker)
-  "Verify proper configuration of Flycheck CHECKER `languagetool'."
+(defun flycheck-languagetool--verify (_checker)
+  "Verify proper configuration of Flycheck _CHECKER `languagetool'."
   (list
    (flycheck-verification-result-new
     :label "LanguageTool server JAR"
