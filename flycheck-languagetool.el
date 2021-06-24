@@ -97,6 +97,9 @@ or plan to start a local server some other way."
           "https://languagetool.org/http-api/swagger-ui/#!/default/post_check")
   :group 'flycheck-languagetool)
 
+(defvar flycheck-languagetool--started-server nil
+  "Have we ever attempted to start the LanguageTool server?")
+
 ;;
 ;; (@* "Util" )
 ;;
@@ -179,7 +182,9 @@ CALLBACK is passed from Flycheck."
 (defun flycheck-languagetool--start (_checker callback)
   "Flycheck start function for _CHECKER `languagetool', invoking CALLBACK."
   (when flycheck-languagetool-server-jar
-    (flycheck-languagetool--start-server))
+    (unless flycheck-languagetool--started-server
+      (setq flycheck-languagetool--started-server t)
+      (flycheck-languagetool--start-server)))
 
   (let ((url-request-method "POST")
         (url-request-extra-headers
