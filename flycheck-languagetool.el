@@ -110,9 +110,9 @@ or plan to start a local server some other way."
 ;; (@* "Core" )
 ;;
 
-(defun flycheck-languagetool--check-all (output)
-  "Check grammar for buffer document."
-  (let ((matches (cdr (assoc 'matches output)))
+(defun flycheck-languagetool--check-all (results)
+  "Map RESULTS from LanguageTool to positions of errors in the buffer."
+  (let ((matches (cdr (assoc 'matches results)))
         check-list)
     (dolist (match matches)
       (let* ((pt-beg (+ 1 (cdr (assoc 'offset match))))
@@ -127,7 +127,7 @@ or plan to start a local server some other way."
               check-list)))
     check-list))
 
-(defun flycheck-languagetool--read-result (status source-buffer callback)
+(defun flycheck-languagetool--read-results (status source-buffer callback)
   "Callback for results from LanguageTool API.
 
 STATUS is passed from `url-retrieve'.
@@ -141,7 +141,7 @@ CALLBACK is passed from Flycheck."
 
   (set-buffer-multibyte t)
   (goto-char url-http-end-of-headers)
-  (let ((output (car (flycheck-parse-json
+  (let ((results (car (flycheck-parse-json
                       (buffer-substring (point) (point-max))))))
     (kill-buffer)
     (with-current-buffer source-buffer
@@ -152,7 +152,7 @@ CALLBACK is passed from Flycheck."
          (lambda (x)
            (apply #'flycheck-error-new-at `(,@x :checker languagetool)))
          (condition-case err
-             (flycheck-languagetool--check-all output)
+             (flycheck-languagetool--check-all results)
            (error (funcall callback 'errored (error-message-string err))
                   (signal (car err) (cdr err))))))))))
 
@@ -198,7 +198,7 @@ CALLBACK is passed from Flycheck."
                  (format "http://localhost:%s"
                          flycheck-languagetool-server-port))
              "/v2/check")
-     #'flycheck-languagetool--read-result
+     #'flycheck-languagetool--read-results
      (list (current-buffer) callback)
      t)))
 
