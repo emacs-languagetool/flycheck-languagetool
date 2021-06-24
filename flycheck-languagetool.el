@@ -173,7 +173,7 @@ CALLBACK is passed from Flycheck."
             (goto-char (point-min))
             (unless (re-search-forward " Server started$" nil t)
               (accept-process-output process 1)
-              t))))))
+              (process-live-p process)))))))
 
 (defun flycheck-languagetool--start (checker callback)
   "Flycheck start function for CHECKER, invoking CALLBACK."
