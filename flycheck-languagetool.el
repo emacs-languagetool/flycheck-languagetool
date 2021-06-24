@@ -1,9 +1,10 @@
 ;;; flycheck-languagetool.el --- Flycheck support for LanguageTool  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021  Shen, Jen-Chieh
+;; Copyright (C) 2021  Shen, Jen-Chieh; Peter Oliver
 ;; Created date 2021-04-02 23:22:44
 
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
+;;	Peter Oliver <git@mavit.org.uk>
 ;; Description: Flycheck support for LanguageTool.
 ;; Keyword: grammar check
 ;; Version: 0.3.0
