@@ -1,13 +1,14 @@
 ;;; flycheck-languagetool.el --- Flycheck support for LanguageTool  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021  Shen, Jen-Chieh
+;; Copyright (C) 2021  Shen, Jen-Chieh; Peter Oliver
 ;; Created date 2021-04-02 23:22:44
 
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
+;;         Peter Oliver <git@mavit.org.uk>
 ;; Description: Flycheck support for LanguageTool.
 ;; Keyword: grammar check
-;; Version: 0.2.0
-;; Package-Requires: ((emacs "25.1") (flycheck "0.14") (s "1.9.0"))
+;; Version: 0.3.0
+;; Package-Requires: ((emacs "25.1") (flycheck "0.14")
 ;; URL: https://github.com/emacs-languagetool/flycheck-languagetool
 
 ;; This file is NOT part of GNU Emacs.
@@ -32,7 +33,6 @@
 
 ;;; Code:
 
-(require 's)
 (require 'flycheck)
 
 (defgroup flycheck-languagetool nil
@@ -47,9 +47,39 @@
   :type 'list
   :group 'flycheck-languagetool)
 
-(defcustom flycheck-languagetool-commandline-jar ""
-  "The path of languagetool-commandline.jar."
-  :type '(file :must-match t)
+(defcustom flycheck-languagetool-url nil
+  "The URL for the LanguageTool API we should connect to."
+  :type '(choice (const :tag "Auto" nil)
+                 (string :tag "URL"))
+  :package-version '(flycheck-languagetool . "0.3.0")
+  :group 'flycheck-languagetool)
+
+(defcustom flycheck-languagetool-server-jar nil
+  "The path of languagetool-server.jar.
+
+The server will be automatically started if specified.  Set to
+nil if you’re going to connect to a remote LanguageTool server,
+or plan to start a local server some other way."
+  :type '(choice (const :tag "Off" nil)
+                 (file :tag "Filename" :must-match t))
+  :package-version '(flycheck-languagetool . "0.3.0")
+  :link '(url-link :tag "LanguageTool embedded HTTP Server"
+                   "https://dev.languagetool.org/http-server.html")
+  :group 'flycheck-languagetool)
+
+(defcustom flycheck-languagetool-server-port 8081
+  "The port on which an automatically started LanguageTool server should listen."
+  :type 'integer
+  :package-version '(flycheck-languagetool . "0.3.0")
+  :link '(url-link :tag "LanguageTool embedded HTTP Server"
+                   "https://dev.languagetool.org/http-server.html")
+  :group 'flycheck-languagetool)
+
+(defcustom flycheck-languagetool-server-args ()
+  "Extra arguments to pass when starting the LanguageTool server."
+  :type '(repeat string)
+  :link '(url-link :tag "LanguageTool embedded HTTP Server"
+                   "https://dev.languagetool.org/http-server.html")
   :group 'flycheck-languagetool)
 
 (defcustom flycheck-languagetool-language "en-US"
@@ -59,27 +89,16 @@
   :group 'flycheck-languagetool)
 (make-variable-buffer-local 'flycheck-languagetool-language)
 
-(defcustom flycheck-languagetool-args ""
-  "Extra argument pass in to command line tool."
-  :type 'string
+(defcustom flycheck-languagetool-check-params ()
+  "Extra parameters to pass with LanguageTool check requests."
+  :type '(alist :key-type string :value-type string)
+  :link '(url-link
+          :tag "LanguageTool API"
+          "https://languagetool.org/http-api/swagger-ui/#!/default/post_check")
   :group 'flycheck-languagetool)
 
-(defcustom flycheck-languagetool-check-time 0.8
-  "How long do we call process after we done typing."
-  :type 'float
-  :group 'flycheck-languagetool)
-
-(defvar-local flycheck-languagetool--done-checking t
-  "If non-nil then we are currnetly in the checking process.")
-
-(defvar-local flycheck-languagetool--timer nil
-  "Timer that will tell to do the request.")
-
-(defvar-local flycheck-languagetool--output nil
-  "Copy of the JSON output.")
-
-(defvar-local flycheck-languagetool--source-buffer nil
-  "Current buffer we are currently using for grammar check.")
+(defvar flycheck-languagetool--started-server nil
+  "Have we ever attempted to start the LanguageTool server?")
 
 ;;
 ;; (@* "Util" )
@@ -90,42 +109,16 @@
   (unless pt (setq pt (point)))
   (save-excursion (goto-char pt) (current-column)))
 
-(defmacro flycheck-languagetool--with-source-buffer (&rest body)
-  "Execute BODY inside currnet source buffer."
-  (declare (indent 0) (debug t))
-  `(if flycheck-languagetool--source-buffer
-       (with-current-buffer flycheck-languagetool--source-buffer (progn ,@body))
-     (user-error "Invalid source buffer: %s" flycheck-languagetool--source-buffer)))
-
-(defun flycheck-languagetool--async-shell-command-to-string (callback cmd &rest args)
-  "Asnyc version of function `shell-command-to-string'.
-
-Argument CALLBACK is called after command is done executing.
-Argument CMD is the name of the command executable.
-Rest argument ARGS is the rest of the argument for CMD."
-  (let ((output-buffer (generate-new-buffer " *temp*"))
-        (callback-fun callback))
-    (set-process-sentinel
-     (start-process "Shell" output-buffer shell-file-name shell-command-switch
-                    (concat cmd " " (mapconcat #'shell-quote-argument args " ")))
-     (lambda (process _signal)
-       (when (memq (process-status process) '(exit signal))
-         (with-current-buffer output-buffer
-           (let ((output-string (buffer-substring-no-properties (point-min) (point-max))))
-             (funcall callback-fun output-string)))
-         (kill-buffer output-buffer))))
-    output-buffer))
-
 ;;
 ;; (@* "Core" )
 ;;
 
-(defun flycheck-languagetool--check-all ()
-  "Check grammar for buffer document."
-  (let ((matches (cdr (assoc 'matches flycheck-languagetool--output)))
+(defun flycheck-languagetool--check-all (results)
+  "Map RESULTS from LanguageTool to positions of errors in the buffer."
+  (let ((matches (cdr (assoc 'matches results)))
         check-list)
     (dolist (match matches)
-      (let* ((pt-beg (cdr (assoc 'offset match)))
+      (let* ((pt-beg (+ 1 (cdr (assoc 'offset match))))
              (len (cdr (assoc 'length match)))
              (pt-end (+ pt-beg len))
              (ln (line-number-at-pos pt-beg))
@@ -135,64 +128,128 @@ Rest argument ARGS is the rest of the argument for CMD."
              (col-end (flycheck-languagetool--column-at-pos pt-end)))
         (push (list ln col-start type desc :end-column col-end)
               check-list)))
-    (progn  ; Remove fitst and last element to avoid quote warnings
-      (pop check-list)
-      (setq check-list (butlast check-list)))
     check-list))
 
-(defun flycheck-languagetool--cache-parse-result (output)
-  "Refressh cache buffer from OUTPUT."
-  (setq flycheck-languagetool--output (car (flycheck-parse-json output))
-        flycheck-languagetool--done-checking t)
-  (flycheck-buffer-automatically))
+(defun flycheck-languagetool--read-results (status source-buffer callback)
+  "Callback for results from LanguageTool API.
 
-(defun flycheck-languagetool--send-process ()
-  "Send process to LanguageTool commandline-jar."
-  (if (not (file-exists-p flycheck-languagetool-commandline-jar))
-      (user-error "Invalid commandline path: %s" flycheck-languagetool-commandline-jar)
-    (when flycheck-languagetool--done-checking
-      (setq flycheck-languagetool--done-checking nil)  ; start flag
-      (flycheck-languagetool--with-source-buffer
-        (let ((source (current-buffer)))
-          (flycheck-languagetool--async-shell-command-to-string
-           (lambda (output)
-             (when (buffer-live-p source)
-               (with-current-buffer source (flycheck-languagetool--cache-parse-result output))))
-           (format "echo %s | java -jar %s %s --json -b %s"
-                   (shell-quote-argument (s-replace "\n" " " (buffer-string)))
-                   flycheck-languagetool-commandline-jar
-                   (if (stringp flycheck-languagetool-language)
-                       (concat "-l " flycheck-languagetool-language)
-                     "-adl")
-                   (if (stringp flycheck-languagetool-args) flycheck-languagetool-args ""))))))))
+STATUS is passed from `url-retrieve'.
+SOURCE-BUFFER is the buffer currently being checked.
+CALLBACK is passed from Flycheck."
+  (let ((err (plist-get status :error)))
+    (when err
+      (kill-buffer)
+      (error (funcall callback 'errored (error-message-string err))
+             (signal (car err) (cdr err)))))
 
-(defun flycheck-languagetool--start-timer ()
-  "Start the timer for grammar check."
-  (setq flycheck-languagetool--source-buffer (current-buffer))
-  (when (timerp flycheck-languagetool--timer) (cancel-timer flycheck-languagetool--timer))
-  (setq flycheck-languagetool--timer
-        (run-with-idle-timer flycheck-languagetool-check-time nil
-                             #'flycheck-languagetool--send-process)))
+  (set-buffer-multibyte t)
+  (goto-char url-http-end-of-headers)
+  (let ((results (car (flycheck-parse-json
+                      (buffer-substring (point) (point-max))))))
+    (kill-buffer)
+    (with-current-buffer source-buffer
+      (funcall
+       callback 'finished
+       (flycheck-increment-error-columns
+        (mapcar
+         (lambda (x)
+           (apply #'flycheck-error-new-at `(,@x :checker languagetool)))
+         (condition-case err
+             (flycheck-languagetool--check-all results)
+           (error (funcall callback 'errored (error-message-string err))
+                  (signal (car err) (cdr err))))))))))
 
-(defun flycheck-languagetool--start (checker callback)
-  "Flycheck start function for CHECKER, invoking CALLBACK."
-  (flycheck-languagetool--start-timer)
-  (funcall
-   callback 'finished
-   (flycheck-increment-error-columns
-    (mapcar
-     (lambda (x)
-       (apply #'flycheck-error-new-at `(,@x :checker ,checker)))
-     (condition-case err
-         (if flycheck-languagetool--done-checking
-             (flycheck-languagetool--check-all)
-           (flycheck-stop))
-       (error (funcall callback 'errored (error-message-string err))
-              (signal (car err) (cdr err))))))))
+(defun flycheck-languagetool--start-server ()
+  "Start the LanguageTool server if we didn’t already."
+  (unless (process-live-p (get-process "languagetool-server"))
+    (let ((process
+           (apply #'start-process
+                  "languagetool-server"
+                  " *LanguageTool server*"
+                  "java"
+                  "-cp" (expand-file-name flycheck-languagetool-server-jar)
+                  "org.languagetool.server.HTTPServer"
+                  "--port" (format "%s" flycheck-languagetool-server-port)
+                  flycheck-languagetool-server-args)))
+      (set-process-query-on-exit-flag process nil)
+      (while
+          (with-current-buffer (process-buffer process)
+            (goto-char (point-min))
+            (unless (re-search-forward " Server started$" nil t)
+              (accept-process-output process 1)
+              (process-live-p process)))))))
+
+(defun flycheck-languagetool--start (_checker callback)
+  "Flycheck start function for _CHECKER `languagetool', invoking CALLBACK."
+  (when flycheck-languagetool-server-jar
+    (unless flycheck-languagetool--started-server
+      (setq flycheck-languagetool--started-server t)
+      (flycheck-languagetool--start-server)))
+
+  (let ((url-request-method "POST")
+        (url-request-extra-headers
+         '(("Content-Type" . "application/x-www-form-urlencoded")))
+        (url-request-data
+         (mapconcat
+          (lambda (param)
+            (concat (url-hexify-string (car param)) "="
+                    (url-hexify-string (cdr param))))
+          (append flycheck-languagetool-check-params
+                  `(("language" . ,flycheck-languagetool-language)
+                    ("text" . ,(buffer-string))))
+          "&")))
+    (url-retrieve
+     (concat (or flycheck-languagetool-url
+                 (format "http://localhost:%s"
+                         flycheck-languagetool-server-port))
+             "/v2/check")
+     #'flycheck-languagetool--read-results
+     (list (current-buffer) callback)
+     t)))
+
+(defun flycheck-languagetool--enabled ()
+  "Can the Flycheck LanguageTool checker be enabled?"
+  (or (and flycheck-languagetool-server-jar
+           (not (string= "" flycheck-languagetool-server-jar))
+           (file-exists-p flycheck-languagetool-server-jar))
+      (and flycheck-languagetool-url
+           (not (string= "" flycheck-languagetool-url)))))
+
+(defun flycheck-languagetool--verify (_checker)
+  "Verify proper configuration of Flycheck _CHECKER `languagetool'."
+  (list
+   (flycheck-verification-result-new
+    :label "LanguageTool server JAR"
+    :message
+    (if flycheck-languagetool-server-jar
+        (format (if (and (not (string= "" flycheck-languagetool-server-jar))
+                         (file-exists-p flycheck-languagetool-server-jar))
+                    "Found at %s" "Missing from %s")
+                flycheck-languagetool-server-jar)
+      "Not configured")
+    :face (if flycheck-languagetool-server-jar
+              (if (and (not (string= "" flycheck-languagetool-server-jar))
+                       (file-exists-p flycheck-languagetool-server-jar))
+                  'success '(bold error))
+            '(bold warning)))
+   (flycheck-verification-result-new
+    ;; We could improve this test by also checking that we can
+    ;; successfully make requests to the URL.
+    :label "LanguageTool API URL"
+    :message (if flycheck-languagetool-url
+                 (if (not (string= "" flycheck-languagetool-url))
+                     flycheck-languagetool-url "Blank")
+               "Not configured")
+    :face (if flycheck-languagetool-url
+                 (if (not (string= "" flycheck-languagetool-url))
+                     'success '(bold error))
+            '(bold warning)))))
 
 (flycheck-define-generic-checker 'languagetool
   "LanguageTool flycheck definition."
   :start #'flycheck-languagetool--start
+  :enabled #'flycheck-languagetool--enabled
+  :verify #'flycheck-languagetool--verify
   :modes flycheck-languagetool-active-modes)
 
 (add-to-list 'flycheck-checkers 'languagetool)
