@@ -4,7 +4,7 @@
 ;; Created date 2021-04-02 23:22:44
 
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
-;;	Peter Oliver <git@mavit.org.uk>
+;;         Peter Oliver <git@mavit.org.uk>
 ;; Description: Flycheck support for LanguageTool.
 ;; Keyword: grammar check
 ;; Version: 0.3.0
