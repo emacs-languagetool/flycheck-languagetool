@@ -250,7 +250,8 @@ CALLBACK is passed from Flycheck."
   :start #'flycheck-languagetool--start
   :enabled #'flycheck-languagetool--enabled
   :verify #'flycheck-languagetool--verify
-  :modes flycheck-languagetool-active-modes)
+  :modes flycheck-languagetool-active-modes
+  :next-checkers '(proselint))
 
 (add-to-list 'flycheck-checkers 'languagetool)
 
