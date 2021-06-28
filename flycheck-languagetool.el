@@ -123,10 +123,14 @@ or plan to start a local server some other way."
              (pt-end (+ pt-beg len))
              (ln (line-number-at-pos pt-beg))
              (type 'warning)
+             (id (cdr (assoc 'id (assoc 'rule match))))
+             (subid (cdr (assoc 'subId (assoc 'rule match))))
              (desc (cdr (assoc 'message match)))
              (col-start (flycheck-languagetool--column-at-pos pt-beg))
              (col-end (flycheck-languagetool--column-at-pos pt-end)))
-        (push (list ln col-start type desc :end-column col-end)
+        (push (list ln col-start type desc
+                    :end-column col-end
+                    :id (cons id subid))
               check-list)))
     check-list))
 
@@ -207,6 +211,20 @@ CALLBACK is passed from Flycheck."
      (list (current-buffer) callback)
      t)))
 
+(defun flycheck-languagetool--error-explainer (err)
+  "Link to a detailed explanation of ERR on the LanguageTool website."
+  (let* ((error-id (flycheck-error-id err))
+         (id (car error-id))
+         (subid (cdr error-id))
+         (url (apply #'format
+                     "https://community.languagetool.org/rule/show/%s?lang=%s"
+                     (mapcar #'url-hexify-string
+                             (list id flycheck-languagetool-language)))))
+    (when subid
+      (setq url (concat url
+                        (format "&subId=%s" (url-hexify-string subid)))))
+    `(url . ,url)))
+
 (defun flycheck-languagetool--enabled ()
   "Can the Flycheck LanguageTool checker be enabled?"
   (or (and flycheck-languagetool-server-jar
@@ -250,6 +268,7 @@ CALLBACK is passed from Flycheck."
   :start #'flycheck-languagetool--start
   :enabled #'flycheck-languagetool--enabled
   :verify #'flycheck-languagetool--verify
+  :error-explainer #'flycheck-languagetool--error-explainer
   :modes flycheck-languagetool-active-modes)
 
 (add-to-list 'flycheck-checkers 'languagetool)
