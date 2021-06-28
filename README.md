@@ -35,6 +35,12 @@ The instruction to use this plugin.
 * `flycheck-languagetool-active-modes`
 * `flycheck-languagetool-language` (Default `"en-US"`)
 
+### :book: Spellchecking
+
+LanguageTool’s spellchecking will be disabled if `flyspell-mode` is
+active.  Disable `flyspell-mode` if you would prefer LanguageTool to
+check for spelling mistakes.
+
 ## Contribution
 
 If you would like to contribute to this project, you may either
