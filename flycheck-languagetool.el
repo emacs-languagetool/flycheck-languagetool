@@ -8,7 +8,7 @@
 ;; Description: Flycheck support for LanguageTool.
 ;; Keyword: grammar check
 ;; Version: 0.3.0
-;; Package-Requires: ((emacs "25.1") (flycheck "0.14")
+;; Package-Requires: ((emacs "25.1") (flycheck "0.14"))
 ;; URL: https://github.com/emacs-languagetool/flycheck-languagetool
 
 ;; This file is NOT part of GNU Emacs.
