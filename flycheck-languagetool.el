@@ -138,6 +138,12 @@ or plan to start a local server some other way."
 These rules will be disabled if Emacs’ `flyspell-mode' is active.")
 
 ;;
+;; (@* "External" )
+;;
+
+(defvar url-http-end-of-headers)
+
+;;
 ;; (@* "Util" )
 ;;
 
@@ -186,7 +192,7 @@ CALLBACK is passed from Flycheck."
   (set-buffer-multibyte t)
   (goto-char url-http-end-of-headers)
   (let ((results (car (flycheck-parse-json
-                      (buffer-substring (point) (point-max))))))
+                       (buffer-substring (point) (point-max))))))
     (kill-buffer)
     (with-current-buffer source-buffer
       (funcall
@@ -301,8 +307,8 @@ CALLBACK is passed from Flycheck."
                      flycheck-languagetool-url "Blank")
                "Not configured")
     :face (if flycheck-languagetool-url
-                 (if (not (string= "" flycheck-languagetool-url))
-                     'success '(bold error))
+              (if (not (string= "" flycheck-languagetool-url))
+                  'success '(bold error))
             '(bold warning)))))
 
 (flycheck-define-generic-checker 'languagetool
