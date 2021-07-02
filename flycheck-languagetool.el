@@ -42,6 +42,7 @@
   :group 'flycheck
   :link '(url-link :tag "Github" "https://github.com/emacs-languagetool/flycheck-languagetool"))
 
+;;;###autoload
 (defcustom flycheck-languagetool-active-modes
   '(text-mode latex-mode org-mode markdown-mode message-mode)
   "List of major mode that work with LanguageTool."
@@ -226,6 +227,7 @@ CALLBACK is passed from Flycheck."
               (accept-process-output process 1)
               (process-live-p process)))))))
 
+;;;###autoload
 (defun flycheck-languagetool--start (_checker callback)
   "Flycheck start function for _CHECKER `languagetool', invoking CALLBACK."
   (when flycheck-languagetool-server-jar
@@ -259,6 +261,7 @@ CALLBACK is passed from Flycheck."
      (list (current-buffer) callback)
      t)))
 
+;;;###autoload
 (defun flycheck-languagetool--error-explainer (err)
   "Link to a detailed explanation of ERR on the LanguageTool website."
   (let* ((error-id (flycheck-error-id err))
@@ -273,6 +276,7 @@ CALLBACK is passed from Flycheck."
                         (format "&subId=%s" (url-hexify-string subid)))))
     `(url . ,url)))
 
+;;;###autoload
 (defun flycheck-languagetool--enabled ()
   "Can the Flycheck LanguageTool checker be enabled?"
   (or (and flycheck-languagetool-server-jar
@@ -281,6 +285,7 @@ CALLBACK is passed from Flycheck."
       (and flycheck-languagetool-url
            (not (string= "" flycheck-languagetool-url)))))
 
+;;;###autoload
 (defun flycheck-languagetool--verify (_checker)
   "Verify proper configuration of Flycheck _CHECKER `languagetool'."
   (list
@@ -311,16 +316,18 @@ CALLBACK is passed from Flycheck."
                   'success '(bold error))
             '(bold warning)))))
 
-(flycheck-define-generic-checker 'languagetool
-  "LanguageTool flycheck definition."
-  :start #'flycheck-languagetool--start
-  :enabled #'flycheck-languagetool--enabled
-  :verify #'flycheck-languagetool--verify
-  :error-explainer #'flycheck-languagetool--error-explainer
-  :modes flycheck-languagetool-active-modes
-  :next-checkers '(proselint))
-
-(add-to-list 'flycheck-checkers 'languagetool)
+;;;###autoload
+(progn
+  (require 'flycheck)
+  (flycheck-define-generic-checker 'languagetool
+    "LanguageTool flycheck definition."
+    :start #'flycheck-languagetool--start
+    :enabled #'flycheck-languagetool--enabled
+    :verify #'flycheck-languagetool--verify
+    :error-explainer #'flycheck-languagetool--error-explainer
+    :modes flycheck-languagetool-active-modes
+    :next-checkers '(proselint))
+  (add-to-list 'flycheck-checkers 'languagetool))
 
 (provide 'flycheck-languagetool)
 ;;; flycheck-languagetool.el ends here
