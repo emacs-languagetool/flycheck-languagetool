@@ -143,6 +143,8 @@ These rules will be disabled if Emacs’ `flyspell-mode' is active.")
 
 (defvar url-http-end-of-headers)
 (defvar url-request-method)
+(defvar url-request-extra-headers)
+(defvar url-request-data)
 
 ;;
 ;; (@* "Util" )
