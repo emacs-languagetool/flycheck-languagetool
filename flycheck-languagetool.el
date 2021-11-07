@@ -280,13 +280,18 @@ CALLBACK is passed from Flycheck."
   "Can the Flycheck LanguageTool checker be enabled?"
   (or (and flycheck-languagetool-server-jar
            (not (string= "" flycheck-languagetool-server-jar))
-           (file-exists-p flycheck-languagetool-server-jar))
+           (file-exists-p flycheck-languagetool-server-jar)
+           (executable-find "java"))
       (and flycheck-languagetool-url
            (not (string= "" flycheck-languagetool-url)))))
 
 (defun flycheck-languagetool--verify (_checker)
   "Verify proper configuration of Flycheck _CHECKER `languagetool'."
   (list
+   (flycheck-verification-result-new
+    :label "Java executable"
+    :message (or (executable-find "java") "Not found")
+    :face (if (executable-find "java") 'success '(bold warning)))
    (flycheck-verification-result-new
     :label "LanguageTool server JAR"
     :message
