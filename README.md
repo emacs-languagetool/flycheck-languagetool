@@ -20,8 +20,7 @@ The instruction to use this plugin.
 ```el
 (use-package flycheck-languagetool
   :ensure t
-  :hook (text-mode . (lambda ()
-                       (require 'flycheck-languagetool)))
+  :hook (text-mode . flycheck-languagetool-setup)
   :init
   (setq flycheck-languagetool-server-jar "path/to/LanguageTool-X.X/languagetool-server.jar"))
 ```

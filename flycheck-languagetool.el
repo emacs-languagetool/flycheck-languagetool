@@ -328,7 +328,11 @@ CALLBACK is passed from Flycheck."
   :modes flycheck-languagetool-active-modes
   :next-checkers '(proselint))
 
-(add-to-list 'flycheck-checkers 'languagetool)
+;;;###autoload
+(defun flycheck-languagetool-setup ()
+  "Setup flycheck-package."
+  (interactive)
+  (add-to-list 'flycheck-checkers 'languagetool))
 
 (provide 'flycheck-languagetool)
 ;;; flycheck-languagetool.el ends here
