@@ -164,10 +164,12 @@ These rules will be disabled if Emacs’ `flyspell-mode' is active.")
   (let ((matches (cdr (assoc 'matches results)))
         check-list)
     (dolist (match matches)
-      (let* ((pt-beg (+ 1 (cdr (assoc 'offset match))))
+      (let* ((pt-beg (+ (point-min) (cdr (assoc 'offset match))))
              (len (cdr (assoc 'length match)))
              (pt-end (+ pt-beg len))
-             (ln (line-number-at-pos pt-beg))
+             (ln (save-restriction
+                   (widen)
+                   (line-number-at-pos pt-beg)))
              (type 'warning)
              (id (cdr (assoc 'id (assoc 'rule match))))
              (subid (cdr (assoc 'subId (assoc 'rule match))))
@@ -246,7 +248,8 @@ CALLBACK is passed from Flycheck."
                     (url-hexify-string (cdr param))))
           (append flycheck-languagetool-check-params
                   `(("language" . ,flycheck-languagetool-language)
-                    ("text" . ,(buffer-string)))
+                    ("text" . ,(buffer-substring-no-properties
+                                (point-min) (point-max))))
                   (when (bound-and-true-p flyspell-mode)
                     (list
                      (cons "disabledRules"
