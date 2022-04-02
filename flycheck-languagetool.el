@@ -238,24 +238,30 @@ CALLBACK is passed from Flycheck."
       (setq flycheck-languagetool--started-server t)
       (flycheck-languagetool--start-server)))
 
-  (let ((url-request-method "POST")
-        (url-request-extra-headers
-         '(("Content-Type" . "application/x-www-form-urlencoded")))
-        (url-request-data
-         (mapconcat
-          (lambda (param)
-            (concat (url-hexify-string (car param)) "="
-                    (url-hexify-string (cdr param))))
-          (append flycheck-languagetool-check-params
-                  `(("language" . ,flycheck-languagetool-language)
-                    ("text" . ,(buffer-substring-no-properties
-                                (point-min) (point-max))))
-                  (when (bound-and-true-p flyspell-mode)
-                    (list
-                     (cons "disabledRules"
-                           (string-join flycheck-languagetool--spelling-rules
-                                        ",")))))
-          "&")))
+  (let* ((url-request-method "POST")
+         (url-request-extra-headers
+          '(("Content-Type" . "application/x-www-form-urlencoded")))
+         (disabled-rules
+          (flatten-tree (list
+                         (cdr (assoc "disabledRules"
+                                     flycheck-languagetool-check-params))
+                         (when (bound-and-true-p flyspell-mode)
+                           flycheck-languagetool--spelling-rules))))
+         (other-params (assoc-delete-all "disabledRules"
+                                         flycheck-languagetool-check-params))
+         (url-request-data
+          (mapconcat
+           (lambda (param)
+             (concat (url-hexify-string (car param)) "="
+                     (url-hexify-string (cdr param))))
+           (append other-params
+                   `(("language" . ,flycheck-languagetool-language)
+                     ("text" . ,(buffer-substring-no-properties
+                                 (point-min) (point-max))))
+                   (when disabled-rules
+                     (list (cons "disabledRules"
+                                 (string-join disabled-rules ",")))))
+           "&")))
     (url-retrieve
      (concat (or flycheck-languagetool-url
                  (format "http://localhost:%s"
