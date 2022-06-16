@@ -2,6 +2,9 @@
          "0.3.0"
          "Flycheck support for LanguageTool")
 
+(website-url "https://github.com/emacs-languagetool/flycheck-languagetool")
+(keywords "grammar" "check")
+
 (package-file "flycheck-languagetool.el")
 
 (source "melpa")
