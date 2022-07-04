@@ -3,7 +3,7 @@
          "Flycheck support for LanguageTool")
 
 (website-url "https://github.com/emacs-languagetool/flycheck-languagetool")
-(keywords "grammar" "check")
+(keywords "convenience" "grammar" "check")
 
 (package-file "flycheck-languagetool.el")
 
