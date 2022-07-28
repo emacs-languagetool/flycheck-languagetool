@@ -54,6 +54,12 @@
   :package-version '(flycheck-languagetool . "0.3.0")
   :group 'flycheck-languagetool)
 
+(defcustom flycheck-languagetool-server-command ()
+  "Custom command to start LanguageTool server.
+If non-nil, this list of strings replaces the standard java cli command."
+  :type '(repeat string)
+  :group 'flycheck-languagetool)
+
 (defcustom flycheck-languagetool-server-jar nil
   "The path of languagetool-server.jar.
 
@@ -213,15 +219,15 @@ CALLBACK is passed from Flycheck."
 (defun flycheck-languagetool--start-server ()
   "Start the LanguageTool server if we didn’t already."
   (unless (process-live-p (get-process "languagetool-server"))
-    (let ((process
-           (apply #'start-process
-                  "languagetool-server"
-                  " *LanguageTool server*"
-                  "java"
-                  "-cp" (expand-file-name flycheck-languagetool-server-jar)
-                  "org.languagetool.server.HTTPServer"
-                  "--port" (format "%s" flycheck-languagetool-server-port)
-                  flycheck-languagetool-server-args)))
+    (let* ((cmd (or flycheck-languagetool-server-command
+                    (list "java" "-cp" (expand-file-name flycheck-languagetool-server-jar)
+                          "org.languagetool.server.HTTPServer"
+                          "--port" (format "%s" flycheck-languagetool-server-port))))
+           (process
+            (apply #'start-process
+                   "languagetool-server"
+                   " *LanguageTool server*"
+                   (append cmd flycheck-languagetool-server-args))))
       (set-process-query-on-exit-flag process nil)
       (while
           (with-current-buffer (process-buffer process)
@@ -232,7 +238,8 @@ CALLBACK is passed from Flycheck."
 
 (defun flycheck-languagetool--start (_checker callback)
   "Flycheck start function for _CHECKER `languagetool', invoking CALLBACK."
-  (when flycheck-languagetool-server-jar
+  (when (or flycheck-languagetool-server-command
+            flycheck-languagetool-server-jar)
     (unless flycheck-languagetool--started-server
       (setq flycheck-languagetool--started-server t)
       (flycheck-languagetool--start-server)))
@@ -290,6 +297,9 @@ CALLBACK is passed from Flycheck."
            (not (string= "" flycheck-languagetool-server-jar))
            (file-exists-p flycheck-languagetool-server-jar)
            (executable-find "java"))
+      (and flycheck-languagetool-server-command
+           (listp flycheck-languagetool-server-command)
+           (executable-find (car flycheck-languagetool-server-command)))
       (and flycheck-languagetool-url
            (not (string= "" flycheck-languagetool-url)))))
 
@@ -312,6 +322,19 @@ CALLBACK is passed from Flycheck."
     :face (if flycheck-languagetool-server-jar
               (if (and (not (string= "" flycheck-languagetool-server-jar))
                        (file-exists-p flycheck-languagetool-server-jar))
+                  'success '(bold error))
+            '(bold warning)))
+   (flycheck-verification-result-new
+    :label "LanguageTool server command"
+    :message
+    (if flycheck-languagetool-server-command
+        (if (and (listp flycheck-languagetool-server-command)
+                 (executable-find (car flycheck-languagetool-server-command)))
+            "Found" "Missings")
+      "Not configured")
+    :face (if flycheck-languagetool-server-command
+              (if (and (listp flycheck-languagetool-server-command)
+                       (executable-find (car flycheck-languagetool-server-command)))
                   'success '(bold error))
             '(bold warning)))
    (flycheck-verification-result-new
