@@ -322,13 +322,15 @@ CALLBACK is passed from Flycheck."
     :label "LanguageTool server command"
     :message
     (if flycheck-languagetool-server-command
-        (if (and (listp flycheck-languagetool-server-command)
-                 (executable-find (car flycheck-languagetool-server-command)))
-            "Found" "Missings")
+        (format (if (and (executable-find
+                          (car flycheck-languagetool-server-command)))
+                    "Found at %s" "Configured as %s but missing")
+                (car flycheck-languagetool-server-command))
       "Not configured")
     :face (if flycheck-languagetool-server-command
               (if (and (listp flycheck-languagetool-server-command)
-                       (executable-find (car flycheck-languagetool-server-command)))
+                       (executable-find
+                        (car flycheck-languagetool-server-command)))
                   'success '(bold error))
             '(bold warning)))
    (flycheck-verification-result-new
