@@ -307,21 +307,15 @@ CALLBACK is passed from Flycheck."
   "Verify proper configuration of Flycheck _CHECKER `languagetool'."
   (list
    (flycheck-verification-result-new
-    :label "Java executable"
-    :message (or (executable-find "java") "Not found")
-    :face (if (executable-find "java") 'success '(bold warning)))
-   (flycheck-verification-result-new
-    :label "LanguageTool server JAR"
-    :message
-    (if flycheck-languagetool-server-jar
-        (format (if (and (not (string= "" flycheck-languagetool-server-jar))
-                         (file-exists-p flycheck-languagetool-server-jar))
-                    "Found at %s" "Missing from %s")
-                flycheck-languagetool-server-jar)
-      "Not configured")
-    :face (if flycheck-languagetool-server-jar
-              (if (and (not (string= "" flycheck-languagetool-server-jar))
-                       (file-exists-p flycheck-languagetool-server-jar))
+    ;; We could improve this test by also checking that we can
+    ;; successfully make requests to the URL.
+    :label "LanguageTool API URL"
+    :message (if flycheck-languagetool-url
+                 (if (not (string= "" flycheck-languagetool-url))
+                     flycheck-languagetool-url "Blank")
+               "Not configured")
+    :face (if flycheck-languagetool-url
+              (if (not (string= "" flycheck-languagetool-url))
                   'success '(bold error))
             '(bold warning)))
    (flycheck-verification-result-new
@@ -338,17 +332,23 @@ CALLBACK is passed from Flycheck."
                   'success '(bold error))
             '(bold warning)))
    (flycheck-verification-result-new
-    ;; We could improve this test by also checking that we can
-    ;; successfully make requests to the URL.
-    :label "LanguageTool API URL"
-    :message (if flycheck-languagetool-url
-                 (if (not (string= "" flycheck-languagetool-url))
-                     flycheck-languagetool-url "Blank")
-               "Not configured")
-    :face (if flycheck-languagetool-url
-              (if (not (string= "" flycheck-languagetool-url))
+    :label "LanguageTool server JAR"
+    :message
+    (if flycheck-languagetool-server-jar
+        (format (if (and (not (string= "" flycheck-languagetool-server-jar))
+                         (file-exists-p flycheck-languagetool-server-jar))
+                    "Found at %s" "Missing from %s")
+                flycheck-languagetool-server-jar)
+      "Not configured")
+    :face (if flycheck-languagetool-server-jar
+              (if (and (not (string= "" flycheck-languagetool-server-jar))
+                       (file-exists-p flycheck-languagetool-server-jar))
                   'success '(bold error))
-            '(bold warning)))))
+            '(bold warning)))
+   (flycheck-verification-result-new
+    :label "Java executable"
+    :message (or (executable-find "java") "Not found")
+    :face (if (executable-find "java") 'success '(bold warning)))))
 
 (flycheck-define-generic-checker 'languagetool
   "LanguageTool flycheck definition."
