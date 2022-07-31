@@ -293,15 +293,15 @@ CALLBACK is passed from Flycheck."
 
 (defun flycheck-languagetool--enabled ()
   "Can the Flycheck LanguageTool checker be enabled?"
-  (or (and flycheck-languagetool-server-jar
-           (not (string= "" flycheck-languagetool-server-jar))
-           (file-exists-p flycheck-languagetool-server-jar)
-           (executable-find "java"))
-      (and flycheck-languagetool-server-command
-           (listp flycheck-languagetool-server-command)
-           (executable-find (car flycheck-languagetool-server-command)))
-      (and flycheck-languagetool-url
-           (not (string= "" flycheck-languagetool-url)))))
+  (cond (flycheck-languagetool-url
+         (not (string= "" flycheck-languagetool-url)))
+        (flycheck-languagetool-server-command
+         (and (listp flycheck-languagetool-server-command)
+              (executable-find (car flycheck-languagetool-server-command))))
+        (flycheck-languagetool-server-jar
+         (and (not (string= "" flycheck-languagetool-server-jar))
+              (file-exists-p flycheck-languagetool-server-jar)
+              (executable-find "java")))))
 
 (defun flycheck-languagetool--verify (_checker)
   "Verify proper configuration of Flycheck _CHECKER `languagetool'."
