@@ -41,6 +41,10 @@ LanguageTool’s spellchecking will be disabled if `flyspell-mode` is
 active.  Disable `flyspell-mode` if you would prefer LanguageTool to
 check for spelling mistakes.
 
+## Troubleshooting
+
+You can find log messages from a local LanguageTool server in a hidden buffer called ` *LanguageTool server*`.
+
 ## Contribute
 
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
