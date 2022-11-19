@@ -195,9 +195,13 @@ SOURCE-BUFFER is the buffer currently being checked.
 CALLBACK is passed from Flycheck."
   (let ((err (plist-get status :error)))
     (when err
-      (kill-buffer)
-      (error (funcall callback 'errored (error-message-string err))
-             (signal (car err) (cdr err)))))
+      (error
+       (funcall callback 'errored
+                (error-message-string
+                 (append err
+                         (list (progn
+                                 (goto-char (+ 1 url-http-end-of-headers))
+                                 (buffer-substring (point) (point-max))))))))))
 
   (set-buffer-multibyte t)
   (goto-char url-http-end-of-headers)
@@ -213,8 +217,7 @@ CALLBACK is passed from Flycheck."
            (apply #'flycheck-error-new-at `(,@x :checker languagetool)))
          (condition-case err
              (flycheck-languagetool--check-all results)
-           (error (funcall callback 'errored (error-message-string err))
-                  (signal (car err) (cdr err))))))))))
+           (error (funcall callback 'errored (error-message-string err))))))))))
 
 (defun flycheck-languagetool--start-server ()
   "Start the LanguageTool server if we didn’t already."
