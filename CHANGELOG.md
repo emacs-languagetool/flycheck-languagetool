@@ -39,12 +39,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - **Incompatible change**: For better performance, a local LanguageTool server is now started once instead of repeatedly starting up the LanguageTool command-line tool for each check.  See `flycheck-languagetool-server-jar` to set the path to the server JAR.
 - Reduce CPU usage.
-- Don’t try to enable this checker if LanguageTool is missing or not configured.
-- If the checker couldn’t be enabled, explain why with `flycheck-verify-checker`.
+- Donâ€™t try to enable this checker if LanguageTool is missing or not configured.
+- If the checker couldnâ€™t be enabled, explain why with `flycheck-verify-checker`.
 - This checker is now activated for `message-mode` buffers.
 - Link each reported warning to a [detailed explanation on the LanguageTool website](https://community.languagetool.org/rule/list).
-- Disable LanguageTool’s spell checker if `flyspell` is in use.
-- Chain to Flycheck’s built-in [Proselint](http://proselint.com/) checker.
+- Disable LanguageToolâ€™s spell checker if `flyspell` is in use.
+- Chain to Flycheckâ€™s built-in [Proselint](http://proselint.com/) checker.
 
 ## [0.2.0] - 2021-06-19
 
