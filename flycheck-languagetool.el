@@ -140,7 +140,8 @@ or plan to start a local server some other way."
     "MORFOLOGIK_RULE_UK_UA"
     "SYMSPELL_RULE")
   "LanguageTool rules for checking of spelling.
-These rules will be disabled if Emacs’ `flyspell-mode' is active.")
+These rules will be disabled if Emacs’ `flyspell-mode' or
+`jinx-mode' is active.")
 
 ;;
 ;; (@* "External" )
@@ -254,7 +255,8 @@ CALLBACK is passed from Flycheck."
           (flatten-tree (list
                          (cdr (assoc "disabledRules"
                                      flycheck-languagetool-check-params))
-                         (when (bound-and-true-p flyspell-mode)
+                         (when (or (bound-and-true-p flyspell-mode)
+                                   (bound-and-true-p jinx-mode))
                            flycheck-languagetool--spelling-rules))))
          (other-params (assoc-delete-all "disabledRules"
                                          flycheck-languagetool-check-params))

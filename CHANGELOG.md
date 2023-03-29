@@ -8,6 +8,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Added
 
+- Disable LanguageTool’s spellchecking when
+  [`jinx-mode`](https://github.com/minad/jinx) is active.
+
 ### Changed
 
 ### Deprecated

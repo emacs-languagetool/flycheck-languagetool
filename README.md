@@ -37,9 +37,10 @@ The instruction to use this plugin.
 
 ### :book: Spellchecking
 
-LanguageTool’s spellchecking will be disabled if `flyspell-mode` is
-active.  Disable `flyspell-mode` if you would prefer LanguageTool to
-check for spelling mistakes.
+LanguageTool’s spellchecking will be disabled if
+[`flyspell-mode`](https://www.gnu.org/software/emacs/manual/html_node/emacs/Spelling.html)
+or [`jinx-mode`](https://github.com/minad/jinx) is active. Disable those
+modes if you would prefer LanguageTool to check for spelling mistakes.
 
 ## Troubleshooting
 
