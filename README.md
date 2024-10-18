@@ -31,9 +31,14 @@ The instruction to use this plugin.
 
 * `flycheck-languagetool-url`
 * `flycheck-languagetool-server-jar`
-* `flycheck-languagetool-server-port`
-* `flycheck-languagetool-active-modes`
-* `flycheck-languagetool-language` (Default `"en-US"`)
+* `flycheck-languagetool-server-port` (Default: 8081)
+* `flycheck-languagetool-server-args`
+* `flycheck-languagetool-server-command`
+* `flycheck-languagetool-active-modes` (Default: `text-mode`, `latex-mode`, `org-mode`, `markdown-mode`, `message-mode`)
+* `flycheck-languagetool-language` (Default: `"en-US"`)
+* `flycheck-languagetool-check-params`
+
+You’ll need to set at least one of `flycheck-languagetool-server-jar` or `flycheck-languagetool-url`.  The rest are optional.
 
 ### 📖 Spellchecking
 

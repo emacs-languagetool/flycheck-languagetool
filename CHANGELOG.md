@@ -20,6 +20,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ### Fixed
 
+- All customizations are now mentioned in the README.
+
 ### Security
 
 ## [0.4.0] - 2022-11-27
