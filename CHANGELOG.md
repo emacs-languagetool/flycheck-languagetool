@@ -4,19 +4,13 @@ All notable changes to this project will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## Unreleased
+## [0.4.1] - 2022-10-18
 
 ### Added
 
 - Disable LanguageTool’s spellchecking when
   [`jinx-mode`](https://github.com/minad/jinx) is active.
 - Possible values for `flycheck-languagetool-check-params` are now pre-populated in the customization interface.
-
-### Changed
-
-### Deprecated
-
-### Removed
 
 ### Fixed
 
