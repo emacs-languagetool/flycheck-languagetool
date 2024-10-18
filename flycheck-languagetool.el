@@ -98,6 +98,17 @@ or plan to start a local server some other way."
 (defcustom flycheck-languagetool-check-params ()
   "Extra parameters to pass with LanguageTool check requests."
   :type '(alist :key-type string :value-type string)
+  :options '("level"
+             "enabledOnly"
+             "disabledCategories"
+             "enabledCategories"
+             "disabledRules"
+             "enabledRules"
+             "preferredVariants"
+             "motherTongue"
+             "dicts"
+             "apiKey"
+             "username")
   :link '(url-link
           :tag "LanguageTool API"
           "https://languagetool.org/http-api/swagger-ui/#!/default/post_check")

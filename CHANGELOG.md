@@ -10,6 +10,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 - Disable LanguageTool’s spellchecking when
   [`jinx-mode`](https://github.com/minad/jinx) is active.
+- Possible values for `flycheck-languagetool-check-params` are now pre-populated in the customization interface.
 
 ### Changed
 
