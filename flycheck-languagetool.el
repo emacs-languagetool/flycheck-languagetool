@@ -1,6 +1,6 @@
 ;;; flycheck-languagetool.el --- Flycheck support for LanguageTool  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021-2024  Shen, Jen-Chieh; Peter Oliver
+;; Copyright (C) 2021-2025  Shen, Jen-Chieh; Peter Oliver
 ;; Created date 2021-04-02 23:22:44
 
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
