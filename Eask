@@ -1,3 +1,5 @@
+;; -*- mode: eask; lexical-binding: t -*-
+
 (package "flycheck-languagetool"
          "0.3.0"
          "Flycheck support for LanguageTool")
