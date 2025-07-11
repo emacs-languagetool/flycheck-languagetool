@@ -46,7 +46,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [0.2.0] - 2021-06-19
 
-- Allow checker to check when `buffer-file-name` is `nil`, see [#5](https://github.com/emacs-languagetool/flycheck-languagetool/issues/5)
+- Allow checker to check when `buffer-file-name` is `nil`, see [#5](../../issues/5)
 - Fix error when buffer is killed before checking
 
 ## [0.1.0] - 2021-04-05
