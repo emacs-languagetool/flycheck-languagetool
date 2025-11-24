@@ -154,6 +154,9 @@ or plan to start a local server some other way."
 These rules will be disabled if Emacs’ `flyspell-mode' or
 `jinx-mode' is active.")
 
+(defconst flycheck-languagetool--prog-rules
+  '("COMMA_PARENTHESIS_WHITESPACE"))
+
 ;;
 ;; (@* "External" )
 ;;
@@ -171,6 +174,47 @@ These rules will be disabled if Emacs’ `flyspell-mode' or
   "Return column at PT."
   (unless pt (setq pt (point)))
   (save-excursion (goto-char pt) (current-column)))
+
+;;
+;; (@* "Prog Mode" )
+;;
+
+(defvar flycheck-languagetool--text-mode t)
+
+(defcustom flycheck-languagetool-prog-text-faces
+  (if (bound-and-true-p tree-sitter-hl-mode)
+      '(tree-sitter-hl-face:comment tree-sitter-hl-face:doc tree-sitter-hl-face:string)
+    '(font-lock-string-face font-lock-comment-face font-lock-doc-face))
+  "Faces corresponding to text in programming-mode buffers."
+  :type '(repeat (const font-lock-string-face)))
+
+(defun flycheck-languagetool--generic-progmode-verify (pt-beg pt-end)
+  "Used for `flycheck-languagetool-generic-check-word-predicate'.
+This predicate checks that the word between PT-BEG and PT-END has
+a \"text\" face in programming modes."
+  (unless (eql pt-beg pt-end)
+    ;; (point) is next char after the word. Must check one char before.
+    (let ((f (get-text-property (1- pt-end) 'face)))
+      (memq f flycheck-languagetool-prog-text-faces))))
+
+(defun flycheck-languagetool-flycheck-add-mode (mode)
+  "Register flycheck languagetool support for MODE."
+  (unless (flycheck-checker-supports-major-mode-p 'languagetool mode)
+    (flycheck-add-mode 'languagetool mode)))
+
+;;;###autoload
+(defun flycheck-languagetool-flycheck-enable ()
+  "Enable flycheck languagetool integration for the current buffer.
+This adds languagetool as the next checker of the main checker
+of the current buffer"
+  (interactive)
+  (require 'flycheck)
+  (flycheck-mode 1)
+  (flycheck-stop)
+  (flycheck-languagetool-flycheck-add-mode major-mode)
+  (add-to-list 'flycheck-checkers 'languagetool)
+  (setq flycheck-languagetool--text-mode nil)
+  (flycheck-add-next-checker (flycheck-get-checker-for-buffer) 'languagetool))
 
 ;;
 ;; (@* "Core" )
@@ -193,10 +237,11 @@ These rules will be disabled if Emacs’ `flyspell-mode' or
              (desc (cdr (assoc 'message match)))
              (col-start (flycheck-languagetool--column-at-pos pt-beg))
              (col-end (flycheck-languagetool--column-at-pos pt-end)))
-        (push (list ln col-start type desc
-                    :end-column col-end
-                    :id (cons id subid))
-              check-list)))
+        (when (or flycheck-languagetool--text-mode (flycheck-languagetool--generic-progmode-verify pt-beg pt-end))
+          (push (list ln col-start type desc
+                      :end-column col-end
+                      :id (cons id subid))
+                check-list))))
     check-list))
 
 (defun flycheck-languagetool--read-results (status source-buffer callback)
@@ -266,6 +311,8 @@ CALLBACK is passed from Flycheck."
           (flatten-tree (list
                          (cdr (assoc "disabledRules"
                                      flycheck-languagetool-check-params))
+                         (unless flycheck-languagetool--text-mode
+                           flycheck-languagetool--prog-rules)
                          (when (or (bound-and-true-p flyspell-mode)
                                    (bound-and-true-p jinx-mode))
                            flycheck-languagetool--spelling-rules))))
@@ -381,6 +428,7 @@ CALLBACK is passed from Flycheck."
 (defun flycheck-languagetool-setup ()
   "Setup flycheck-package."
   (interactive)
+  (setq flycheck-languagetool--text-mode t)
   (add-to-list 'flycheck-checkers 'languagetool))
 
 (provide 'flycheck-languagetool)
