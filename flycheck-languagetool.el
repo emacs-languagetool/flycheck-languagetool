@@ -270,7 +270,7 @@ CALLBACK is passed from Flycheck."
                                    (bound-and-true-p jinx-mode))
                            flycheck-languagetool--spelling-rules))))
          (other-params (assoc-delete-all "disabledRules"
-                                         flycheck-languagetool-check-params))
+                                         (copy-alist flycheck-languagetool-check-params)))
          (url-request-data
           (mapconcat
            (lambda (param)
