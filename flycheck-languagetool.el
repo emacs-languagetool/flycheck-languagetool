@@ -215,21 +215,25 @@ CALLBACK is passed from Flycheck."
                                  (goto-char (+ 1 url-http-end-of-headers))
                                  (buffer-substring (point) (point-max))))))))))
 
-  (set-buffer-multibyte t)
-  (goto-char url-http-end-of-headers)
-  (let ((results (car (flycheck-parse-json
-                       (buffer-substring (point) (point-max))))))
+  (if (buffer-live-p source-buffer)
+      (progn
+        (set-buffer-multibyte t)
+        (goto-char url-http-end-of-headers)
+        (let ((results (car (flycheck-parse-json
+                             (buffer-substring (point) (point-max))))))
+          (kill-buffer)
+          (with-current-buffer source-buffer
+            (funcall
+             callback 'finished
+             (flycheck-increment-error-columns
+              (mapcar
+               (lambda (x)
+                 (apply #'flycheck-error-new-at `(,@x :checker languagetool)))
+               (condition-case err
+                   (flycheck-languagetool--check-all results)
+                 (error (funcall callback 'errored (error-message-string err))))))))))
     (kill-buffer)
-    (with-current-buffer source-buffer
-      (funcall
-       callback 'finished
-       (flycheck-increment-error-columns
-        (mapcar
-         (lambda (x)
-           (apply #'flycheck-error-new-at `(,@x :checker languagetool)))
-         (condition-case err
-             (flycheck-languagetool--check-all results)
-           (error (funcall callback 'errored (error-message-string err))))))))))
+    (funcall callback 'interrupted nil)))
 
 (defun flycheck-languagetool--start-server ()
   "Start the LanguageTool server if we didn’t already."
