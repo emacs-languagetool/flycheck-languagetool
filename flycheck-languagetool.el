@@ -177,26 +177,30 @@ These rules will be disabled if Emacs’ `flyspell-mode' or
 ;;
 
 (defun flycheck-languagetool--check-all (results)
-  "Map RESULTS from LanguageTool to positions of errors in the buffer."
+  "Map RESULTS from LanguageTool to positions of errors in the buffer.
+Matches whose offsets fall outside the current buffer bounds are
+silently skipped, since the buffer may have been modified while
+the LanguageTool request was in flight."
   (let ((matches (cdr (assoc 'matches results)))
         check-list)
     (dolist (match matches)
       (let* ((pt-beg (+ (point-min) (cdr (assoc 'offset match))))
              (len (cdr (assoc 'length match)))
-             (pt-end (+ pt-beg len))
-             (ln (save-restriction
-                   (widen)
-                   (line-number-at-pos pt-beg)))
-             (type 'warning)
-             (id (cdr (assoc 'id (assoc 'rule match))))
-             (subid (cdr (assoc 'subId (assoc 'rule match))))
-             (desc (cdr (assoc 'message match)))
-             (col-start (flycheck-languagetool--column-at-pos pt-beg))
-             (col-end (flycheck-languagetool--column-at-pos pt-end)))
-        (push (list ln col-start type desc
-                    :end-column col-end
-                    :id (cons id subid))
-              check-list)))
+             (pt-end (+ pt-beg len)))
+        (when (and (<= (point-min) pt-beg) (<= pt-end (point-max)))
+          (let ((ln (save-restriction
+                      (widen)
+                      (line-number-at-pos pt-beg)))
+                (type 'warning)
+                (id (cdr (assoc 'id (assoc 'rule match))))
+                (subid (cdr (assoc 'subId (assoc 'rule match))))
+                (desc (cdr (assoc 'message match)))
+                (col-start (flycheck-languagetool--column-at-pos pt-beg))
+                (col-end (flycheck-languagetool--column-at-pos pt-end)))
+            (push (list ln col-start type desc
+                        :end-column col-end
+                        :id (cons id subid))
+                  check-list)))))
     check-list))
 
 (defun flycheck-languagetool--read-results (status source-buffer callback)
@@ -223,15 +227,17 @@ CALLBACK is passed from Flycheck."
                              (buffer-substring (point) (point-max))))))
           (kill-buffer)
           (with-current-buffer source-buffer
-            (funcall
-             callback 'finished
-             (flycheck-increment-error-columns
-              (mapcar
-               (lambda (x)
-                 (apply #'flycheck-error-new-at `(,@x :checker languagetool)))
-               (condition-case err
-                   (flycheck-languagetool--check-all results)
-                 (error (funcall callback 'errored (error-message-string err))))))))))
+            (condition-case err
+                (funcall
+                 callback 'finished
+                 (flycheck-increment-error-columns
+                  (mapcar
+                   (lambda (x)
+                     (apply #'flycheck-error-new-at
+                            `(,@x :checker languagetool)))
+                   (flycheck-languagetool--check-all results))))
+              (error
+               (funcall callback 'errored (error-message-string err)))))))
     (kill-buffer)
     (funcall callback 'interrupted nil)))
 
