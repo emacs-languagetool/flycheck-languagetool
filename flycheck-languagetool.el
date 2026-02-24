@@ -223,15 +223,17 @@ CALLBACK is passed from Flycheck."
                              (buffer-substring (point) (point-max))))))
           (kill-buffer)
           (with-current-buffer source-buffer
-            (funcall
-             callback 'finished
-             (flycheck-increment-error-columns
-              (mapcar
-               (lambda (x)
-                 (apply #'flycheck-error-new-at `(,@x :checker languagetool)))
-               (condition-case err
-                   (flycheck-languagetool--check-all results)
-                 (error (funcall callback 'errored (error-message-string err))))))))))
+            (condition-case err
+                (funcall
+                 callback 'finished
+                 (flycheck-increment-error-columns
+                  (mapcar
+                   (lambda (x)
+                     (apply #'flycheck-error-new-at
+                            `(,@x :checker languagetool)))
+                   (flycheck-languagetool--check-all results))))
+              (error
+               (funcall callback 'errored (error-message-string err)))))))
     (kill-buffer)
     (funcall callback 'interrupted nil)))
 
