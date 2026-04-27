@@ -6,7 +6,7 @@
 ;; Author: Shen, Jen-Chieh <jcs090218@gmail.com>
 ;;         Peter Oliver <git@mavit.org.uk>
 ;; URL: https://github.com/emacs-languagetool/flycheck-languagetool
-;; Version: 0.4.2
+;; Version: 0.5.0
 ;; Package-Requires: ((emacs "27.1") (flycheck "0.14"))
 ;; Keywords: convenience grammar check
 
@@ -158,6 +158,7 @@ These rules will be disabled if Emacs’ `flyspell-mode' or
 (defface flycheck-languagetool-suggestion-face
   '((t (:inherit diff-changed)))
   "Flycheck face for LanguageTool suggestions."
+  :package-version '(flycheck-languagetool . "0.5.0")
   :group 'flycheck-languagetool)
 
 (defcustom flycheck-languagetool-suggestion-limit 12
@@ -169,6 +170,7 @@ Any suggestions beyond this count will be ignored."
                (< n 256))) ;; This number is somewhat picked out of the
                            ;; air, but large values can hurt
                            ;; performance.
+  :package-version '(flycheck-languagetool . "0.5.0")
   :group 'flycheck-languagetool)
 
 ;;

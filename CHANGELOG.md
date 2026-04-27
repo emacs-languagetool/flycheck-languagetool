@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.5.0] - 2026-07-31
+
+### Added
+
+- Suggested corrections are now shown.  They can be customized with `flycheck-languagetool-suggestion-face` and `flycheck-languagetool-suggestion-limit`.
+- The first suggestion can be applied using [Flycheck 38’s new “Fix errors” feature](https://www.flycheck.org/en/v38.3/user/error-interaction.html#fix-errors).
+
 ## [0.4.2] - 2026-02-18
 
 ### Fixed

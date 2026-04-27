@@ -1,7 +1,7 @@
 ;; -*- mode: eask; lexical-binding: t -*-
 
 (package "flycheck-languagetool"
-         "0.4.2"
+         "0.5.0"
          "Flycheck support for LanguageTool")
 
 (website-url "https://github.com/emacs-languagetool/flycheck-languagetool")
