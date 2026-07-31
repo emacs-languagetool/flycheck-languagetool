@@ -37,6 +37,8 @@ The instruction to use this plugin.
 * `flycheck-languagetool-active-modes` (Default: `text-mode`, `latex-mode`, `org-mode`, `markdown-mode`, `message-mode`)
 * `flycheck-languagetool-language` (Default: `"en-US"`)
 * `flycheck-languagetool-check-params`
+* `flycheck-languagetool-suggestion-face` (Default: `diff-changed`)
+* `flycheck-languagetool-suggestion-limit` (Default: 12)
 
 You’ll need to set at least one of `flycheck-languagetool-server-jar` or `flycheck-languagetool-url`.  The rest are optional.
 
