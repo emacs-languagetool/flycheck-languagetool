@@ -49,6 +49,10 @@ LanguageTool’s spellchecking will be disabled if
 or [`jinx-mode`](https://github.com/minad/jinx) is active. Disable those
 modes if you would prefer LanguageTool to check for spelling mistakes.
 
+## 💡 Suggestions
+
+When LanguageTool suggests corrections for an issue it detects, its first suggestion can be applied via [Flycheck 38’s new Fix errors feature](https://www.flycheck.org/en/v38.3/user/error-interaction.html#fix-errors).
+
 ## ❓ Troubleshooting
 
 You can find log messages from a local LanguageTool server in a hidden buffer called ` *LanguageTool server*`.

@@ -193,8 +193,9 @@ Any suggestions beyond this count will be ignored."
 ;; (@* "Core" )
 ;;
 
-(defun flycheck-languagetool--check-all (results)
-  "Map RESULTS from LanguageTool to positions of errors in the buffer."
+(defun flycheck-languagetool--check-all (results tick)
+  "Map RESULTS from LanguageTool to positions of errors in the buffer.
+TICK was the result of `buffer-chars-modified-tick' at the time of the check."
   (let ((matches (cdr (assoc 'matches results)))
         check-list)
     (dolist (match matches)
@@ -207,7 +208,21 @@ Any suggestions beyond this count will be ignored."
              (type 'warning)
              (id (cdr (assoc 'id (assoc 'rule match))))
              (subid (cdr (assoc 'subId (assoc 'rule match))))
+             (col-start (flycheck-languagetool--column-at-pos pt-beg))
+             (col-end (flycheck-languagetool--column-at-pos pt-end))
              (replacements (cdr (assoc 'replacements match)))
+             (fix (when replacements
+                    (flycheck-fix-new
+                     :description (cdr (assoc 'shortMessage match))
+                     :edits (list
+                             (flycheck-fix-edit-new
+                              :line ln
+                              :column (+ 1 col-start)
+                              :end-line ln
+                              :end-column (+ 1 col-end)
+                              :replacement (cdr (assoc 'value
+                                                       (car replacements)))))
+                     :tick tick)))
              (desc
               (apply #'concat
                      (cdr (assoc 'message match))
@@ -216,7 +231,9 @@ Any suggestions beyond this count will be ignored."
                         " Suggestions: "
                         (mapconcat
                          (lambda (replacement)
-                           (let ((suggestion (cdr (assoc 'value replacement))))
+                           (let ((suggestion
+                                  (copy-sequence
+                                   (cdr (assoc 'value replacement)))))
                              (put-text-property
                               0
                               (length suggestion)
@@ -230,20 +247,20 @@ Any suggestions beyond this count will be ignored."
                         (if (> (length replacements)
                                flycheck-languagetool-suggestion-limit)
                             "…"
-                          ".")))))
-             (col-start (flycheck-languagetool--column-at-pos pt-beg))
-             (col-end (flycheck-languagetool--column-at-pos pt-end)))
+                          "."))))))
         (push (list ln col-start type desc
                     :end-column col-end
-                    :id (cons id subid))
+                    :id (cons id subid)
+                    :fix fix)
               check-list)))
     check-list))
 
-(defun flycheck-languagetool--read-results (status source-buffer callback)
+(defun flycheck-languagetool--read-results (status source-buffer tick callback)
   "Callback for results from LanguageTool API.
 
 STATUS is passed from `url-retrieve'.
 SOURCE-BUFFER is the buffer currently being checked.
+TICK was the result of `buffer-chars-modified-tick' at the time of the request.
 CALLBACK is passed from Flycheck."
   (let ((err (plist-get status :error)))
     (when err
@@ -270,7 +287,7 @@ CALLBACK is passed from Flycheck."
                (lambda (x)
                  (apply #'flycheck-error-new-at `(,@x :checker languagetool)))
                (condition-case err
-                   (flycheck-languagetool--check-all results)
+                   (flycheck-languagetool--check-all results tick)
                  (error (funcall callback 'errored (error-message-string err))))))))))
     (kill-buffer)
     (funcall callback 'interrupted nil)))
@@ -334,7 +351,7 @@ CALLBACK is passed from Flycheck."
                          flycheck-languagetool-server-port))
              "/v2/check")
      #'flycheck-languagetool--read-results
-     (list (current-buffer) callback)
+     (list (current-buffer) (buffer-chars-modified-tick) callback)
      t)))
 
 (defun flycheck-languagetool--error-explainer (err)
