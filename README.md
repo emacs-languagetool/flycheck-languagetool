@@ -51,7 +51,7 @@ modes if you would prefer LanguageTool to check for spelling mistakes.
 
 ## 💡 Suggestions
 
-When LanguageTool suggests corrections for an issue it detects, its first suggestion can be applied via [Flycheck 38’s new Fix errors feature](https://www.flycheck.org/en/v38.3/user/error-interaction.html#fix-errors).
+When LanguageTool suggests corrections for an issue it detects, its first suggestion can be applied via [Flycheck 38’s new “Fix errors” feature](https://www.flycheck.org/en/v38.3/user/error-interaction.html#fix-errors).
 
 ## ❓ Troubleshooting
 
