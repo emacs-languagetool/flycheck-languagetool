@@ -7,7 +7,7 @@
 ;;         Peter Oliver <git@mavit.org.uk>
 ;; URL: https://github.com/emacs-languagetool/flycheck-languagetool
 ;; Version: 0.5.0
-;; Package-Requires: ((emacs "27.1") (flycheck "0.14"))
+;; Package-Requires: ((emacs "27.1") (flycheck "38"))
 ;; Keywords: convenience grammar check
 
 ;; This file is NOT part of GNU Emacs.
