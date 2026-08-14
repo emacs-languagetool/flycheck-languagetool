@@ -188,8 +188,8 @@ Any suggestions beyond this count will be ignored."
 
 (defun flycheck-languagetool--column-at-pos (&optional pt)
   "Return column at PT."
-  (unless pt (setq pt (point)))
-  (save-excursion (goto-char pt) (current-column)))
+  (setq pt (or pt (point)))
+  (save-excursion (goto-char pt) (- (point) (line-beginning-position))))
 
 ;;
 ;; (@* "Core" )
