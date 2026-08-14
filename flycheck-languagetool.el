@@ -183,15 +183,6 @@ Any suggestions beyond this count will be ignored."
 (defvar url-request-data)
 
 ;;
-;; (@* "Util" )
-;;
-
-(defun flycheck-languagetool--column-at-pos (&optional pt)
-  "Return column at PT."
-  (unless pt (setq pt (point)))
-  (save-excursion (goto-char pt) (current-column)))
-
-;;
 ;; (@* "Core" )
 ;;
 
@@ -204,24 +195,21 @@ TICK was the result of `buffer-chars-modified-tick' at the time of the check."
       (let* ((pt-beg (+ (point-min) (cdr (assoc 'offset match))))
              (len (cdr (assoc 'length match)))
              (pt-end (+ pt-beg len))
-             (ln (save-restriction
-                   (widen)
-                   (line-number-at-pos pt-beg)))
+             (beg (flycheck-line-column-at-pos pt-beg))
+             (end (flycheck-line-column-at-pos pt-end))
              (type 'warning)
              (id (cdr (assoc 'id (assoc 'rule match))))
              (subid (cdr (assoc 'subId (assoc 'rule match))))
-             (col-start (flycheck-languagetool--column-at-pos pt-beg))
-             (col-end (flycheck-languagetool--column-at-pos pt-end))
              (replacements (cdr (assoc 'replacements match)))
              (fix (when replacements
                     (flycheck-fix-new
                      :description (cdr (assoc 'shortMessage match))
                      :edits (list
                              (flycheck-fix-edit-new
-                              :line ln
-                              :column (+ 1 col-start)
-                              :end-line ln
-                              :end-column (+ 1 col-end)
+                              :line (car beg)
+                              :column (cdr beg)
+                              :end-line (car end)
+                              :end-column (cdr end)
                               :replacement (cdr (assoc 'value
                                                        (car replacements)))))
                      :tick tick)))
@@ -250,8 +238,8 @@ TICK was the result of `buffer-chars-modified-tick' at the time of the check."
                                flycheck-languagetool-suggestion-limit)
                             "…"
                           "."))))))
-        (push (list ln col-start type desc
-                    :end-column col-end
+        (push (list pt-beg type desc
+                    :end-pos pt-end
                     :id (cons id subid)
                     :fix fix)
               check-list)))
@@ -284,13 +272,12 @@ CALLBACK is passed from Flycheck."
           (with-current-buffer source-buffer
             (funcall
              callback 'finished
-             (flycheck-increment-error-columns
-              (mapcar
-               (lambda (x)
-                 (apply #'flycheck-error-new-at `(,@x :checker languagetool)))
-               (condition-case err
-                   (flycheck-languagetool--check-all results tick)
-                 (error (funcall callback 'errored (error-message-string err))))))))))
+             (mapcar
+              (lambda (x)
+                (apply #'flycheck-error-new-at-pos `(,@x :checker languagetool)))
+              (condition-case err
+                  (flycheck-languagetool--check-all results tick)
+                (error (funcall callback 'errored (error-message-string err)))))))))
     (kill-buffer)
     (funcall callback 'interrupted nil)))
 
