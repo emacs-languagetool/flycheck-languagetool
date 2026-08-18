@@ -7,7 +7,7 @@
 ;;         Peter Oliver <git@mavit.org.uk>
 ;; URL: https://github.com/emacs-languagetool/flycheck-languagetool
 ;; Version: 0.5.0
-;; Package-Requires: ((emacs "27.1") (flycheck "38"))
+;; Package-Requires: ((emacs "27.1") (flycheck "39.0.0.20260813"))
 ;; Keywords: convenience grammar check
 
 ;; This file is NOT part of GNU Emacs.
@@ -195,8 +195,6 @@ TICK was the result of `buffer-chars-modified-tick' at the time of the check."
       (let* ((pt-beg (+ (point-min) (cdr (assoc 'offset match))))
              (len (cdr (assoc 'length match)))
              (pt-end (+ pt-beg len))
-             (beg (flycheck-line-column-at-pos pt-beg))
-             (end (flycheck-line-column-at-pos pt-end))
              (type 'warning)
              (id (cdr (assoc 'id (assoc 'rule match))))
              (subid (cdr (assoc 'subId (assoc 'rule match))))
@@ -205,13 +203,9 @@ TICK was the result of `buffer-chars-modified-tick' at the time of the check."
                     (flycheck-fix-new
                      :description (cdr (assoc 'shortMessage match))
                      :edits (list
-                             (flycheck-fix-edit-new
-                              :line (car beg)
-                              :column (cdr beg)
-                              :end-line (car end)
-                              :end-column (cdr end)
-                              :replacement (cdr (assoc 'value
-                                                       (car replacements)))))
+                             (flycheck-fix-edit-new-at-pos
+                              pt-beg pt-end
+                              (cdr (assoc 'value (car replacements)))))
                      :tick tick)))
              (desc
               (apply #'concat
