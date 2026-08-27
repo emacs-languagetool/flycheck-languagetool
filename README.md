@@ -34,7 +34,7 @@ The instruction to use this plugin.
 * `flycheck-languagetool-server-port` (Default: 8081)
 * `flycheck-languagetool-server-args`
 * `flycheck-languagetool-server-command`
-* `flycheck-languagetool-active-modes` (Default: `text-mode`, `latex-mode`, `org-mode`, `markdown-mode`, `message-mode`)
+* `flycheck-languagetool-active-modes` (Default: `text-mode`, `latex-mode`, `org-mode`, `markdown-mode`, `markdown-ts-mode`, `message-mode`)
 * `flycheck-languagetool-language` (Default: `"en-US"`)
 * `flycheck-languagetool-check-params`
 * `flycheck-languagetool-suggestion-face` (Default: `diff-changed`)
