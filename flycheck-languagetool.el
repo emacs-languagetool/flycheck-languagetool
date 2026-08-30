@@ -34,6 +34,7 @@
 
 (require 'diff-mode)
 (require 'flycheck)
+(require 'json)
 (eval-when-compile (require 'subr-x))
 
 (defgroup flycheck-languagetool nil
@@ -295,6 +296,78 @@ CALLBACK is passed from Flycheck."
               (accept-process-output process 1)
               (process-live-p process)))))))
 
+(defun flycheck-languagetool--org-to-json (beg end)
+  "Convert Org buffer region between BEG and END to LanguageTool Annotated JSON."
+  (save-excursion
+    (goto-char beg)
+    (let ((org-header-regexp
+           (concat "^\\(?1:\\*+\\)"
+                   "\\(?2: +\\(?3:"
+                   (regexp-opt (if (bound-and-true-p org-todo-keywords-1)
+                                   org-todo-keywords-1
+                                 '("TODO" "DONE")))
+                   "\\)\\)?"
+                   "\\(?4: +\\(?5:\\[\\#\\(?6:[A-Z]\\|[0-9]\\|[1-5][0-9]\\|6[0-4]\\)\\]\\)\\)?"
+                   "\\(?7:\\(?8: +\\)\\(?9:.*?\\)\\)??"
+                   "\\(?10:[ 	]+\\(?11::\\([[:alnum:]_@#%:]+\\):\\)\\)?"
+                   "\\(?12:[ 	]*\\)$"))
+          annotations in-org-block)
+      (while (< (point) end)
+        (let* ((line-beg (point))
+               (line-end (line-end-position))
+               (line-str (buffer-substring-no-properties line-beg line-end))
+               (has-nl (< line-end end))
+               (nl-str (if has-nl "\n" "")))
+          (cond
+           ;; Block entry and exit
+           ((string-match-p "^[ \t]*#\\+BEGIN_[A-Z]+" line-str)
+            (setq in-org-block t)
+            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annotations))
+           ((string-match-p "^[ \t]*#\\+END_[A-Z]+" line-str)
+            (setq in-org-block nil)
+            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annotations))
+           (in-org-block
+            (push `((text . ,line-str)) annotations))
+
+           ;; Structural elements (keywords, drawers, comments, property lines)
+           ((string-match-p "^[ \t]*\\(#\\+\\|:\\|# \\|-----\\)" line-str)
+            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annotations))
+
+           ;; Org headline
+           ((string-match org-header-regexp line-str)
+            (let ((stars (match-string 1 line-str))
+                  (todo (match-string 2 line-str))
+                  (priority (match-string 4 line-str))
+                  (text (match-string 9 line-str))
+                  (tags (match-string 10 line-str))
+                  (tail (match-string 12 line-str)))
+              (push `((markup . ,stars) (interpretAs . "\n\n")) annotations)
+              (when todo
+                (push `((markup . ,todo)) annotations))
+              (when priority
+                (push `((markup . ,priority)) annotations))
+              (when text
+                (push `((markup . ,(match-string 8 line-str))) annotations)
+                (push `((text . ,text)) annotations))
+              (when tags
+                (push `((markup . ,tags)) annotations))
+              (unless (string-empty-p tail)
+                (push `((markup . ,tail)) annotations))
+              (when has-nl
+                (push '((markup . "\n") (interpretAs . "\n\n")) annotations))))
+
+           ;; Empty line
+           ((and has-nl (string-empty-p line-str))
+            (push '((markup . "\n") (interpretAs . "\n\n")) annotations))
+
+           (t
+            (when (> (length line-str) 0)
+              (push `((text . ,line-str)) annotations))
+            (when has-nl
+              (push '((markup . "\n")) annotations)))))
+        (forward-line 1))
+      (json-encode `((annotation . ,(vconcat (nreverse annotations))))))))
+
 (defun flycheck-languagetool--start (_checker callback)
   "Flycheck start function for _CHECKER `languagetool', invoking CALLBACK."
   (when (or flycheck-languagetool-server-command
@@ -321,9 +394,14 @@ CALLBACK is passed from Flycheck."
              (concat (url-hexify-string (car param)) "="
                      (url-hexify-string (cdr param))))
            (append other-params
-                   `(("language" . ,flycheck-languagetool-language)
-                     ("text" . ,(buffer-substring-no-properties
-                                 (point-min) (point-max))))
+                   `(("language" . ,flycheck-languagetool-language))
+                   (cond
+                    ((derived-mode-p 'org-mode)
+                     `(("data" . ,(flycheck-languagetool--org-to-json
+                                   (point-min) (point-max)))))
+                    (t
+                     `(("text" . ,(buffer-substring-no-properties
+                                   (point-min) (point-max))))))
                    (when disabled-rules
                      (list (cons "disabledRules"
                                  (string-join disabled-rules ",")))))
