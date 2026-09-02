@@ -296,7 +296,19 @@ CALLBACK is passed from Flycheck."
               (accept-process-output process 1)
               (process-live-p process)))))))
 
-(defun flycheck-languagetool--org-to-json (beg end)
+(defmacro flycheck-languagetool--json-multiline-text (annotations line-str has-nl nl-str)
+  "Convert LINE-STR as multiline text to JSON and add to ANNOTATIONS.
+When the line has newline char (HAS-NL is non-nil), add newline
+str (NL-STR) as markup."
+  `(cond
+    ((and has-nl (string-empty-p line-str)) ; empty line breaks up stentences
+     (push `((markup . ,nl-str) (interpretAs . "\n\n")) annotations))
+    (t
+     (push `((text . ,line-str)) annotations)
+     (when has-nl             ; sentence continues in the next line
+       (push `((markup . ,nl-str)) annotations)))))
+
+(defun flycheck-languagetool--json-from-org (beg end)
   "Convert Org buffer region between BEG and END to LanguageTool Annotated JSON."
   (save-excursion
     (goto-char beg)
@@ -311,6 +323,12 @@ CALLBACK is passed from Flycheck."
                    "\\(?7:\\(?8: +\\)\\(?9:.*?\\)\\)??"
                    "\\(?10:[ 	]+\\(?11::\\([[:alnum:]_@#%:]+\\):\\)\\)?"
                    "\\(?12:[ 	]*\\)$"))
+          (org-list-regexp
+           (concat "^\\(?1:[ \t]*\\(?:[-+*]\\|\\(?:[0-9]+\\|[A-Za-z]\\)[.)]\\)\\(?:[ \t]+\\|$\\)\\)"
+	           "\\(?5:\\[@\\(?:start:\\)?\\(?:[0-9]+\\|[A-Za-z]\\)\\][ \t]*\\)?"
+	           "\\(?8:\\(?:\\[[ X-]\\]\\)\\(?:[ \t]+\\|$\\)\\)?"
+	           "\\(?11:\\(?12:.+\\)\\(?13:[ \t]+::[ \t]+\\)\\)?"
+                   "\\(?15:.+\\)$"))
           annotations in-org-block)
       (while (< (point) end)
         (let* ((line-beg (point))
@@ -319,15 +337,22 @@ CALLBACK is passed from Flycheck."
                (has-nl (< line-end end))
                (nl-str (if has-nl "\n" "")))
           (cond
-           ;; Block entry and exit
-           ((string-match-p "^[ \t]*#\\+BEGIN_[A-Z]+" line-str)
-            (setq in-org-block t)
+           ;; Block entry and exit (export, center, comment, example, quote, src, verse)
+           ((string-match-p "^[ \t]*#\\+BEGIN_\\(COMMENT\\|EXAMPLE\\|EXPORT\\|SRC\\)" line-str)
+            ;; Skip the enclosed text by marking as markup.
+            (setq in-org-block 'markup)
+            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annotations))
+           ((string-match-p "^[ \t]*#\\+BEGIN_\\(CENTER\\|QUOTE\\|VERSE\\)" line-str)
+            ;; Analyze the enclosed text.
+            (setq in-org-block 'text)
             (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annotations))
            ((string-match-p "^[ \t]*#\\+END_[A-Z]+" line-str)
             (setq in-org-block nil)
             (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annotations))
-           (in-org-block
-            (push `((text . ,line-str)) annotations))
+           ((eq in-org-block 'markup)
+            (push `((markup . ,line-str)) annotations))
+           ((eq in-org-block 'text)
+            (flycheck-languagetool--json-multiline-text annotations line-str has-nl nl-str))
 
            ;; Structural elements (keywords, drawers, comments, property lines)
            ((string-match-p "^[ \t]*\\(#\\+\\|:\\|# \\|-----\\)" line-str)
@@ -354,17 +379,29 @@ CALLBACK is passed from Flycheck."
               (unless (string-empty-p tail)
                 (push `((markup . ,tail)) annotations))
               (when has-nl
-                (push '((markup . "\n") (interpretAs . "\n\n")) annotations))))
+                (push `((markup . ,nl-str) (interpretAs . "\n\n")) annotations))))
 
-           ;; Empty line
-           ((and has-nl (string-empty-p line-str))
-            (push '((markup . "\n") (interpretAs . "\n\n")) annotations))
+           ;; Org list
+           ((string-match org-list-regexp line-str)
+            (let ((bullet (match-string 1 line-str))
+                  (counter (match-string 5 line-str))
+                  (checkbox (match-string 8 line-str))
+                  (term (match-string 12 line-str))
+                  (colons (match-string 13 line-str))
+                  (desc (match-string 15 line-str)))
+              (push `((markup . ,bullet) (interpretAs . "\n\n")) annotations)
+              (when counter
+                (push `((markup . ,counter)) annotations))
+              (when checkbox
+                (push `((markup . ,checkbox)) annotations))
+              (when term
+                (push `((text . ,term)) annotations))
+              (when colons
+                (push `((markup . ,colons) (interpretAs . "\n\n")) annotations))
+              (push `((text . ,(concat desc nl-str))) annotations)))
 
            (t
-            (when (> (length line-str) 0)
-              (push `((text . ,line-str)) annotations))
-            (when has-nl
-              (push '((markup . "\n")) annotations)))))
+            (flycheck-languagetool--json-multiline-text annotations line-str has-nl nl-str))))
         (forward-line 1))
       (json-encode `((annotation . ,(vconcat (nreverse annotations))))))))
 
@@ -397,7 +434,7 @@ CALLBACK is passed from Flycheck."
                    `(("language" . ,flycheck-languagetool-language))
                    (cond
                     ((derived-mode-p 'org-mode)
-                     `(("data" . ,(flycheck-languagetool--org-to-json
+                     `(("data" . ,(flycheck-languagetool--json-from-org
                                    (point-min) (point-max)))))
                     (t
                      `(("text" . ,(buffer-substring-no-properties
