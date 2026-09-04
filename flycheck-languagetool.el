@@ -296,23 +296,51 @@ CALLBACK is passed from Flycheck."
               (accept-process-output process 1)
               (process-live-p process)))))))
 
-(defmacro flycheck-languagetool--json-multiline-text (annotations line-str has-nl nl-str)
-  "Convert LINE-STR as multiline text to JSON and add to ANNOTATIONS.
-When the line has newline char (HAS-NL is non-nil), add newline
-str (NL-STR) as markup."
-  `(cond
-    ((and has-nl (string-empty-p line-str)) ; empty line breaks up stentences
-     (push `((markup . ,nl-str) (interpretAs . "\n\n")) annotations))
-    (t
-     (push `((text . ,line-str)) annotations)
-     (when has-nl             ; sentence continues in the next line
-       (push `((markup . ,nl-str)) annotations)))))
+(defun flycheck-languagetool--json-org-line (line-str &optional has-nl nl-str)
+  "Parse LINE-STR as Org text to JSON.
+When the line has newline char (non-nil HAS-NL), add newline (NL-STR) as
+markup."
+  (let (annos)
+    (if (and has-nl (string-match "^[ \t]*$" line-str))
+        ;; Empty line breaks up sentences/paragraphs.
+        (push `((markup . ,(concat (match-string 0 line-str) nl-str))
+                (interpretAs . "\n\n"))
+              annos)
+      (let* ((_ (string-match "^\\(?1:[ \t]+\\)?\\(?2:.+\\)\\(?3:[ \t]+\\)?$" line-str))
+             (pre (match-string 1 line-str))
+             (text (match-string 2 line-str))
+             (post (match-string 3 line-str)))
+        (when pre
+          (push `((markup . ,pre)) annos))
+        (let ((beg 0)
+              (org-link-re "\\[\\[\\([^][\n]+\\)\\]\\(?:\\[\\([^][\n]+\\)\\]\\)?\\]"))
+          (while (string-match org-link-re text beg)
+            (let ((m-beg (match-beginning 0))
+                  (m-end (match-end 0))
+                  (has-desc (match-beginning 2)))
+              (when (> m-beg beg)
+                (push `((text . ,(substring text beg m-beg))) annos))
+              (if has-desc
+                  (let ((desc-start (match-beginning 2))
+                        (desc-end (match-end 2)))
+                    (push `((markup . ,(substring text m-beg desc-start))) annos)
+                    (push `((text . ,(substring text desc-start desc-end))) annos)
+                    (push `((markup . ,(substring text desc-end m-end))) annos))
+                (push `((markup . ,(substring text m-beg m-end))) annos))
+              (setq beg m-end)))
+          (when (< beg (length text))
+            (push `((text . ,(substring text beg))) annos)))
+        (when post
+          (push `((markup . ,post)) annos)))
+      (when has-nl       ; soft return / forced line break
+        (push `((markup . ,nl-str)) annos)))
+    annos))
 
-(defun flycheck-languagetool--json-from-org (beg end)
-  "Convert Org buffer region between BEG and END to LanguageTool Annotated JSON."
+(defun flycheck-languagetool--json-org (beg end)
+  "Convert Org buffer region from BEG to END to annotated JSON."
   (save-excursion
     (goto-char beg)
-    (let ((org-header-regexp
+    (let ((org-header-re
            (concat "^\\(?1:\\*+\\)"
                    "\\(?2: +\\(?3:"
                    (regexp-opt (if (bound-and-true-p org-todo-keywords-1)
@@ -321,15 +349,15 @@ str (NL-STR) as markup."
                    "\\)\\)?"
                    "\\(?4: +\\(?5:\\[\\#\\(?6:[A-Z]\\|[0-9]\\|[1-5][0-9]\\|6[0-4]\\)\\]\\)\\)?"
                    "\\(?7:\\(?8: +\\)\\(?9:.*?\\)\\)??"
-                   "\\(?10:[ 	]+\\(?11::\\([[:alnum:]_@#%:]+\\):\\)\\)?"
-                   "\\(?12:[ 	]*\\)$"))
-          (org-list-regexp
+                   "\\(?10:[ \t]+\\(?11::\\([[:alnum:]_@#%:]+\\):\\)\\)?"
+                   "\\(?12:[ \t]*\\)$"))
+          (org-list-re
            (concat "^\\(?1:[ \t]*\\(?:[-+*]\\|\\(?:[0-9]+\\|[A-Za-z]\\)[.)]\\)\\(?:[ \t]+\\|$\\)\\)"
 	           "\\(?5:\\[@\\(?:start:\\)?\\(?:[0-9]+\\|[A-Za-z]\\)\\][ \t]*\\)?"
 	           "\\(?8:\\(?:\\[[ X-]\\]\\)\\(?:[ \t]+\\|$\\)\\)?"
 	           "\\(?11:\\(?12:.+\\)\\(?13:[ \t]+::[ \t]+\\)\\)?"
                    "\\(?15:.+\\)$"))
-          annotations in-org-block)
+          annos in-org-block)
       (while (< (point) end)
         (let* ((line-beg (point))
                (line-end (line-end-position))
@@ -339,71 +367,68 @@ str (NL-STR) as markup."
           (cond
            ;; Block entry and exit (export, center, comment, example, quote, src, verse)
            ((string-match-p "^[ \t]*#\\+BEGIN_\\(COMMENT\\|EXAMPLE\\|EXPORT\\|SRC\\)" line-str)
-            ;; Skip the enclosed text by marking as markup.
             (setq in-org-block 'markup)
-            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annotations))
+            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annos))
            ((string-match-p "^[ \t]*#\\+BEGIN_\\(CENTER\\|QUOTE\\|VERSE\\)" line-str)
-            ;; Analyze the enclosed text.
             (setq in-org-block 'text)
-            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annotations))
+            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annos))
            ((string-match-p "^[ \t]*#\\+END_[A-Z]+" line-str)
             (setq in-org-block nil)
-            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annotations))
+            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annos))
            ((eq in-org-block 'markup)
-            (push `((markup . ,line-str)) annotations))
+            (push `((markup . ,line-str)) annos))
            ((eq in-org-block 'text)
-            (flycheck-languagetool--json-multiline-text annotations line-str has-nl nl-str))
+            (setq annos (nconc (flycheck-languagetool--json-org-line line-str has-nl nl-str) annos)))
 
            ;; Structural elements (keywords, drawers, comments, property lines)
            ((string-match-p "^[ \t]*\\(#\\+\\|:\\|# \\|-----\\)" line-str)
-            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annotations))
+            (push `((markup . ,(concat line-str nl-str)) (interpretAs . "\n\n")) annos))
 
            ;; Org headline
-           ((string-match org-header-regexp line-str)
+           ((string-match org-header-re line-str)
             (let ((stars (match-string 1 line-str))
                   (todo (match-string 2 line-str))
                   (priority (match-string 4 line-str))
                   (text (match-string 9 line-str))
                   (tags (match-string 10 line-str))
                   (tail (match-string 12 line-str)))
-              (push `((markup . ,stars) (interpretAs . "\n\n")) annotations)
+              (push `((markup . ,stars) (interpretAs . "\n\n")) annos)
               (when todo
-                (push `((markup . ,todo)) annotations))
+                (push `((markup . ,todo)) annos))
               (when priority
-                (push `((markup . ,priority)) annotations))
+                (push `((markup . ,priority)) annos))
               (when text
-                (push `((markup . ,(match-string 8 line-str))) annotations)
-                (push `((text . ,text)) annotations))
+                (push `((markup . ,(match-string 8 line-str))) annos)
+                (setq annos (nconc (flycheck-languagetool--json-org-line text) annos)))
               (when tags
-                (push `((markup . ,tags)) annotations))
+                (push `((markup . ,tags)) annos))
               (unless (string-empty-p tail)
-                (push `((markup . ,tail)) annotations))
+                (push `((markup . ,tail)) annos))
               (when has-nl
-                (push `((markup . ,nl-str) (interpretAs . "\n\n")) annotations))))
+                (push `((markup . ,nl-str) (interpretAs . "\n\n")) annos))))
 
            ;; Org list
-           ((string-match org-list-regexp line-str)
+           ((string-match org-list-re line-str)
             (let ((bullet (match-string 1 line-str))
                   (counter (match-string 5 line-str))
                   (checkbox (match-string 8 line-str))
                   (term (match-string 12 line-str))
                   (colons (match-string 13 line-str))
                   (desc (match-string 15 line-str)))
-              (push `((markup . ,bullet) (interpretAs . "\n\n")) annotations)
+              (push `((markup . ,bullet) (interpretAs . "\n\n")) annos)
               (when counter
-                (push `((markup . ,counter)) annotations))
+                (push `((markup . ,counter)) annos))
               (when checkbox
-                (push `((markup . ,checkbox)) annotations))
+                (push `((markup . ,checkbox)) annos))
               (when term
-                (push `((text . ,term)) annotations))
+                (setq annos (nconc (flycheck-languagetool--json-org-line term) annos)))
               (when colons
-                (push `((markup . ,colons) (interpretAs . "\n\n")) annotations))
-              (push `((text . ,(concat desc nl-str))) annotations)))
-
+                (push `((markup . ,colons) (interpretAs . "\n\n")) annos))
+              (setq annos (nconc (flycheck-languagetool--json-org-line desc has-nl nl-str) annos))))
            (t
-            (flycheck-languagetool--json-multiline-text annotations line-str has-nl nl-str))))
+            (setq annos (nconc (flycheck-languagetool--json-org-line line-str has-nl nl-str) annos)))))
         (forward-line 1))
-      (json-encode `((annotation . ,(vconcat (nreverse annotations))))))))
+      (json-encode `((annotation . ,(vconcat (nreverse annos))))))))
 
 (defun flycheck-languagetool--start (_checker callback)
   "Flycheck start function for _CHECKER `languagetool', invoking CALLBACK."
@@ -434,7 +459,7 @@ str (NL-STR) as markup."
                    `(("language" . ,flycheck-languagetool-language))
                    (cond
                     ((derived-mode-p 'org-mode)
-                     `(("data" . ,(flycheck-languagetool--json-from-org
+                     `(("data" . ,(flycheck-languagetool--json-org
                                    (point-min) (point-max)))))
                     (t
                      `(("text" . ,(buffer-substring-no-properties
